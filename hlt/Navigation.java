@@ -2,7 +2,7 @@ package hlt;
 
 public class Navigation {
 
-    public static ThrustMove navigateShipToDock(
+    public static ThrustMove navigateShipToClosestPoint(
             final GameMap gameMap,
             final Ship ship,
             final Entity dockTarget,
