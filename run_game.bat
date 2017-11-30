@@ -1,2 +1,3 @@
 javac InitialBot.java 
-halite -d "240 160" "java InitialBot" "java InitialBot"
+javac ModifiedBot.java 
+halite "java InitialBot" "java ModifiedBot"
