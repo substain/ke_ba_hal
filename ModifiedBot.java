@@ -6,6 +6,8 @@ import java.util.TreeMap;
 
 public class ModifiedBot {
 
+	private static double distanceUnit;
+	
     public static void main(final String[] args) {
         final Networking networking = new Networking();
         final GameMap gameMap = networking.initialize("ModdedBot");
@@ -17,39 +19,53 @@ public class ModifiedBot {
                 "; players: " + gameMap.getAllPlayers().size() +
                 "; planets: " + gameMap.getAllPlanets().size();
         Log.log(initialMapIntelligence);
+        
+        distanceUnit =(gameMap.getWidth() + gameMap.getHeight())/2 / (gameMap.getAllPlanets().size()*2);
+        Log.log("distUnit = " + distanceUnit);
 
         final ArrayList<Move> moveList = new ArrayList<>();
         for (;;) {
             moveList.clear();
             networking.updateMap(gameMap);
+            
 
-            int id = 0; //count free ships, give them ids to specify more individual behavior
+            		
+            int ship_id = 0;		
+            int defensiveShips = 0; //count free ships, give them ids to specify more individual behavior
+            int offensiveShips = 0;
+            
             for (final Ship ship : gameMap.getMyPlayer().getShips().values()) {
-            	id++;
+            	ship_id++;
                 Map<Double, Entity> entities_by_dist = gameMap.nearbyEntitiesByDistance(ship);
                 if (ship.getDockingStatus() != Ship.DockingStatus.Undocked) {
-                	id--; //do not use this ship 
+            		//Log.log("Ship " + ship.getId() + ": (docked) \n");
+            		
+                	defensiveShips++;
                     continue;
                 }
                 
+                
+                
                 //not very sophisticated: once a ship is destroyed or docks, the order and the behavior of an individual ship will probably change
-                //2 out of 5 ships will attack (or all of the rest, if the amount of ships reaches a specific threshold
-                if((id % 5) > 2 || id > (gameMap.getAllPlanets().size() * 2)) {
+                //some ships will attack (or all of the rest, if the amount of ships reaches a specific threshold
+                if(defensiveShips > 4 && ((double) defensiveShips / (double) offensiveShips > 2 || ship_id > gameMap.getAllPlanets().size() * 8)) {
                 	Move move = offensiveBehavior(ship, entities_by_dist, gameMap);
+                	//Log.log("Ship " + ship.getId() + ": (attacks) \n");
+
                 	if(move != null) {
                 		moveList.add(move);
                 	}
-                } else if((id % 5) >= 1) { //1 out of 5 ships will go to free planets (if possible)
-                	Move move = exploringBehavior(ship, entities_by_dist, gameMap);
-                	if(move != null) {
-                		moveList.add(move);
+                } else {  //some ships will dock to planets (or all of the rest, if the amount of ships reaches a specific threshold
+                	boolean target_new_planets = false;
+                	if((ship_id % 3) != 3) { //some ships will go to unowned planets
+                		target_new_planets = true;
                 	}
-                } else { //the rest will go to the nearest planet and dock
-                	Move move = defensiveBehavior(ship, entities_by_dist, gameMap);
+                	Move move = defensiveBehavior(ship, entities_by_dist, gameMap, target_new_planets);
                 	if(move != null) {
                 		moveList.add(move);
                 	}
                 }
+                
 
             }
             Networking.sendMoves(moveList);
@@ -74,38 +90,108 @@ public class ModifiedBot {
 		return null;
 	}
 	
-	static private Move exploringBehavior(Ship thisShip, Map<Double, Entity> dist_sorted_entities, GameMap gameMap) {
-		for(Map.Entry<Double,Entity> targetEntity : dist_sorted_entities.entrySet()) {
-			  if(targetEntity.getValue() instanceof Planet) {
-				  Planet targetPlanet = (Planet) targetEntity.getValue();
-				  if(!targetPlanet.isOwned()) {      
-					  if (thisShip.canDock(targetPlanet)) {
-		                return new DockMove(thisShip, targetPlanet);
-					  } else {
-						return Navigation.navigateShipToClosestPoint(gameMap, thisShip, targetPlanet, Constants.MAX_SPEED/2);
-					  }
-				  }
-			  }
+	
+	static private Move defensiveBehavior(Ship thisShip, Map<Double, Entity> dist_sorted_entities, GameMap gameMap, boolean prioritizeUnowned) {
+		Planet targetPlanet = findBestPlanet(thisShip, dist_sorted_entities, prioritizeUnowned, gameMap.getMyPlayerId());
+		if(targetPlanet != null) {
+			Log.log("Ship " + thisShip.getId() + ": (move to planet) -> " + targetPlanet.getId() +" \n");
+			return moveToPlanet(thisShip, targetPlanet, gameMap);
 		}
-		
-		return defensiveBehavior(thisShip, dist_sorted_entities, gameMap);
+		return offensiveBehavior(thisShip, dist_sorted_entities, gameMap); //no free planet
 	}
 	
-	static private Move defensiveBehavior(Ship thisShip, Map<Double, Entity> dist_sorted_entities, GameMap gameMap) {
-		for(Map.Entry<Double,Entity> targetEntity : dist_sorted_entities.entrySet()) {
-			  if(targetEntity.getValue() instanceof Planet) {
-				  Planet targetPlanet = (Planet) targetEntity.getValue();
-				  if(targetPlanet.getOwner() == gameMap.getMyPlayerId() || !targetPlanet.isOwned()) { //is dockable            
-					  if (thisShip.canDock(targetPlanet)) {
-		                return new DockMove(thisShip, targetPlanet);
-					  } else {
-						return Navigation.navigateShipToClosestPoint(gameMap, thisShip, targetPlanet, Constants.MAX_SPEED/2);
-					  }
-				  }
-			  }
+	
+	
+	static private Move moveToPlanet(Ship thisShip, Planet targetPlanet, GameMap gameMap) {
+		if (thisShip.canDock(targetPlanet)) {
+			return new DockMove(thisShip, targetPlanet);
+		} else {
+			return Navigation.navigateShipToClosestPoint(gameMap, thisShip, targetPlanet, Constants.MAX_SPEED/2);
+		}
+	}
+	
+	//not very
+	static private Planet findBestPlanet(Ship thisShip, Map<Double, Entity> dist_sorted_entities, boolean prioritizeUnowned, int myId){
+		String logstr;
+		if(prioritizeUnowned) {
+			logstr = "Ship " + thisShip.getId() + ": (ufind)"; //debug
+
+		} else {
+			logstr = "Ship " + thisShip.getId() + ": (find)"; //debug
 		}
 		
-		//no free planet
-		return offensiveBehavior(thisShip, dist_sorted_entities, gameMap);
+		Planet bestAnyPlanet = null;
+		Planet bestUnownedPlanet = null;
+		boolean anyPlSet = false;
+		boolean unownedPlSet = false;
+		
+		double min_a_range = 4*distanceUnit;
+		double min_u_range = 5*distanceUnit;
+
+		for(Map.Entry<Double,Entity> targetEntity : dist_sorted_entities.entrySet()) {
+			if(targetEntity.getValue() instanceof Planet) {
+				  Planet targetPlanet = (Planet) targetEntity.getValue();
+				  
+				  if(targetPlanet.isOwned() && targetPlanet.getOwner() != myId) { //not a planet to dock on
+					  continue; 
+				  }
+				  
+				  if(!anyPlSet) { //nothing to compare yet, init bestAnyPlanet
+					  bestAnyPlanet = targetPlanet;
+					  anyPlSet = true;
+					  min_a_range = Math.max(thisShip.getDistanceTo(targetPlanet), min_a_range);
+					  //logstr += "a_range = " + min_a_range;
+					  //logstr += " (n=" + targetPlanet.getDistanceTo(thisShip) + "/" + targetPlanet.getRadius() +") -> pl:" + targetPlanet.getId() + " /// ";
+
+					  if(!targetPlanet.isOwned() && prioritizeUnowned) { // init bestUnownedPlanet
+						  bestUnownedPlanet = targetPlanet;
+						  unownedPlSet = true;
+						  min_u_range = min_a_range;
+						  //logstr += "u_range = " + min_a_range;
+						  //logstr += " (n=" + targetPlanet.getDistanceTo(thisShip) + "/" + targetPlanet.getRadius() +") -> upl:" + targetPlanet.getId() + " /// ";
+					  }
+					  continue;
+				  }
+				  
+
+				  double thisPlDist = thisShip.getDistanceTo(targetPlanet);
+				  double thisPlRadius = targetPlanet.getRadius();
+				  
+				  if(thisPlRadius > bestAnyPlanet.getRadius() * 1.1 && thisPlDist < min_a_range + 3*distanceUnit) {
+					  bestAnyPlanet = targetPlanet;
+					  logstr += "=>(b=" + targetPlanet.getDistanceTo(thisShip) + "/" + targetPlanet.getRadius() +") -> pl:" + targetPlanet.getId() + " /// ";
+
+				  }
+				  
+				  if(prioritizeUnowned && !targetPlanet.isOwned()) {
+					  if(!unownedPlSet) {
+						  bestUnownedPlanet = targetPlanet;
+						  unownedPlSet = true;
+						  min_u_range = Math.max(thisShip.getDistanceTo(targetPlanet), min_u_range);
+						  //logstr += "u_range = " + min_a_range;
+						  //logstr += " (n=" + targetPlanet.getDistanceTo(thisShip) + "/" + targetPlanet.getRadius() +") -> upl:" + targetPlanet.getId() + " /// ";
+						  
+					  } else {
+						  
+						  //equivalent computation as with bestAnyPlanet
+						  if(thisPlRadius > bestUnownedPlanet.getRadius() * 1.1 && thisPlDist < min_u_range + 3*distanceUnit) {
+							  bestUnownedPlanet = targetPlanet;
+							  //logstr += "=>(b=" + targetPlanet.getDistanceTo(thisShip) + "/" + targetPlanet.getRadius() +") -> upl:" + targetPlanet.getId() + " /// ";
+						  }
+						  
+					  }
+				  }
+				  
+			}
+
+		}
+		
+		logstr += "\n";
+		//Log.log(logstr);
+		if(prioritizeUnowned && unownedPlSet) {
+			return bestUnownedPlanet;
+		}
+				
+		return bestAnyPlanet; //may be null -> all Planets owned by someone else
 	}
 }
