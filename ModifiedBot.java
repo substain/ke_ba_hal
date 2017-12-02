@@ -1,4 +1,5 @@
 import hlt.*;
+import hlt.Ship.DockingStatus;
 
 import java.util.ArrayList;
 import java.util.Map;
@@ -31,7 +32,7 @@ public class ModifiedBot {
             ArrayList<Planet> targetedFreePlanets = new ArrayList<>();
             		
             int ship_id = 0;		
-            double range = Math.min(gameMap.getWidth(), (double)(0.05*gameMap.getMyPlayer().getShips().size()*distanceUnit));
+            double range = Math.min(gameMap.getWidth(), (double)(0.10*gameMap.getMyPlayer().getShips().size()*distanceUnit));
             
             for (final Ship ship : gameMap.getMyPlayer().getShips().values()) {
                 Map<Double, Entity> entities_by_dist = gameMap.nearbyEntitiesByDistance(ship);
@@ -104,7 +105,70 @@ public class ModifiedBot {
 		}
 	}
 	
-	//not very
+	static private Ship findBestEnemyShip(Ship thisShip, Map<Double, Entity> dist_sorted_entities, GameMap gameMap, double range){
+		
+		Ship bestTarget = null;
+		boolean bestTargetSet = false;
+		boolean bestTargetDocks = false;
+
+		double min_range = 2*distanceUnit + range;
+		
+		for(Map.Entry<Double,Entity> targetEntity : dist_sorted_entities.entrySet()) {
+			if(targetEntity.getValue() instanceof Ship) {
+				  Ship targetShip = (Ship) targetEntity.getValue();
+				  
+				  if(targetShip.getOwner() == gameMap.getMyPlayerId()) { //not a planet to dock on
+					  continue; 
+				  }
+				  
+				  if(!bestTargetSet) { //nothing to compare yet, init bestAnyPlanet
+					  bestTarget = targetShip;
+					  bestTargetSet = true;
+					  min_range = Math.max(thisShip.getDistanceTo(bestTarget), min_range);
+					  //logstr += "a_range = " + min_a_range;
+					  //logstr += " (n=" + targetPlanet.getDistanceTo(thisShip) + "/" + targetPlanet.getRadius() +") -> pl:" + targetPlanet.getId() + " /// ";
+
+					  continue;
+				  } else { //out of searching range
+					  if(thisShip.getDistanceTo(targetShip) > min_range + (2*distanceUnit + range)) {
+						  break;
+					  }
+				  }
+				  
+				  DockingStatus dock_status = targetShip.getDockingStatus();
+				  if(dock_status == DockingStatus.Docked || dock_status == DockingStatus.Docking) {
+					  if(bestTargetDocks) {
+						  Planet dockedPlanet = gameMap.getPlanet(targetShip.getDockedPlanet());
+						  Planet lastDockedPlanet = gameMap.getPlanet(bestTarget.getDockedPlanet());
+						  if(lastDockedPlanet == null) {
+							  if(dockedPlanet == null) {
+								  continue; //both ships equal, prefer previous (closer) ship
+							  } else {
+								  bestTarget = targetShip; //current ship is docked to a planet -> better target
+							  }
+							  
+						  } else { //both ships docked to a planet
+							  if(dockedPlanet != null && dockedPlanet.getRadius() > lastDockedPlanet.getRadius()) {
+								  bestTarget = targetShip;
+							  }
+						  }
+
+					  }
+					  else {
+						  bestTargetDocks = true;
+						  bestTarget = targetShip;
+					  }
+				  }
+
+				  				  
+			}
+
+		}
+				
+		return bestTarget;
+	}
+
+
 	static private Planet findBestPlanet(Ship thisShip, Map<Double, Entity> dist_sorted_entities, boolean prioritizeUnowned, int myId, ArrayList<Planet> targetedPlanets, double range){
 		String logstr;
 		if(prioritizeUnowned) {
@@ -127,7 +191,7 @@ public class ModifiedBot {
 			if(targetEntity.getValue() instanceof Planet) {
 				  Planet targetPlanet = (Planet) targetEntity.getValue();
 				  
-				  if(targetPlanet.isOwned() && targetPlanet.getOwner() != myId) { //not a planet to dock on
+				  if((targetPlanet.isOwned() && targetPlanet.getOwner() != myId) || targetPlanet.isFull()) { //not a planet to dock on
 					  continue; 
 				  }
 				  
