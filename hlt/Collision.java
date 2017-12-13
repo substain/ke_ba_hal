@@ -52,4 +52,31 @@ public class Collision {
     public static double square(final double num) {
         return num * num;
     }
+    
+    //fudge is, again, a value for a safety zone
+    public static boolean pointInsideCircle(final Position point, final Entity circle, final double fudge) {
+    	final double px = point.getXPos();
+    	final double py = point.getYPos();
+        final double safeCircleRad = circle.getRadius() + fudge;
+        final double circleCX = circle.getXPos();
+        final double circleCY = circle.getYPos();
+        
+        final double dx = Math.abs(px - circleCX);
+        final double dy = Math.abs(py - circleCY);
+        
+        if(dx > safeCircleRad || dy > safeCircleRad) {
+        	return true;
+        }
+        if(dx+dy <= safeCircleRad) {
+        	return false;
+        	
+        }
+        
+        if(square(dx) + square(dy) > square(safeCircleRad)){
+        	return true;
+        } else {
+        	return false;
+        }
+    }
+    
 }

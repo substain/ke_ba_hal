@@ -74,4 +74,12 @@ public class Position {
     public String toString() {
         return "Position(" + xPos + ", " + yPos + ")";
     }
+    
+    
+    public static Position getOppositePos(Position mid, Position refPos) {
+    	double newX = mid.getXPos() - refPos.getXPos();
+    	double newY = mid.getYPos() - refPos.getYPos();
+    	Position pos = new Position(newX, newY);
+    	return pos;
+    }
 }

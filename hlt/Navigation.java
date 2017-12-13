@@ -5,13 +5,24 @@ public class Navigation {
     public static ThrustMove navigateShipToClosestPoint(
             final GameMap gameMap,
             final Ship ship,
-            final Entity dockTarget,
+            final Entity target,
+            final int maxThrust)
+    {
+
+        final Position targetPos = ship.getClosestPoint(target);
+
+        return navigateShipToPoint(gameMap, ship, targetPos, maxThrust);
+    }
+    
+    public static ThrustMove navigateShipToPoint(
+            final GameMap gameMap,
+            final Ship ship,
+            final Position targetPos,
             final int maxThrust)
     {
         final int maxCorrections = Constants.MAX_NAVIGATION_CORRECTIONS;
         final boolean avoidObstacles = true;
         final double angularStepRad = Math.PI/180.0;
-        final Position targetPos = ship.getClosestPoint(dockTarget);
 
         return navigateShipTowardsTarget(gameMap, ship, targetPos, maxThrust, avoidObstacles, maxCorrections, angularStepRad);
     }

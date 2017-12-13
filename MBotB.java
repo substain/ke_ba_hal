@@ -1,11 +1,7 @@
 import hlt.*;
 import hlt.Ship.DockingStatus;
-import hlt.Task.TaskStatus;
-import hlt.Task.TaskType;
 
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -15,82 +11,30 @@ public class ModifiedBot {
 	
     public static void main(final String[] args) {
         final Networking networking = new Networking();
-        final GameMap gameMap = networking.initialize("ModdedBot");
-
-        int gmWidth = gameMap.getWidth();
-        int gmHeight = gameMap.getHeight();
-        final double usedFudge = Constants.FORECAST_FUDGE_FACTOR;
-        Map<Integer, Planet> lastKnownPlanets = gameMap.getAllPlanets();
-        Map<Integer, Ship> lastKnownShips = gameMap.getMyPlayer().getShips();
+        final GameMap gameMap = networking.initialize("MBot_B");
 
         // We now have 1 full minute to analyse the initial map.
         final String initialMapIntelligence =
-                "width: " + gmWidth +
-                "; height: " + gmHeight +
+                "width: " + gameMap.getWidth() +
+                "; height: " + gameMap.getHeight() +
                 "; players: " + gameMap.getAllPlayers().size() +
                 "; planets: " + gameMap.getAllPlanets().size();
         Log.log(initialMapIntelligence);
         
-        distanceUnit =(gmWidth + gmHeight)/2 / (lastKnownPlanets.size()*2);
+        distanceUnit =(gameMap.getWidth() + gameMap.getHeight())/2 / (gameMap.getAllPlanets().size()*2);
         Log.log("distUnit = " + distanceUnit);
 
-        //create a map of coordinates, where true means a planet (or its safety-zone) is on that coordinate
-        boolean[][] hitmap = createHitmap(gameMap, usedFudge);
-        
-        HashMap<Integer, Task> tasks = new HashMap<>();
-        HashMap<Integer, Position> lastPositions = new HashMap<>();
-
         final ArrayList<Move> moveList = new ArrayList<>();
-
         for (;;) {
             moveList.clear();
             networking.updateMap(gameMap);
-            HashMap<Integer, Task> newTasks = new HashMap<>();
-        	HashMap<Integer, Position> expectedPositions = new HashMap<>();
-
-            Map<Integer, Planet> currentPlanets = gameMap.getAllPlanets();
-        	if(currentPlanets.size() < lastKnownPlanets.size()) {
-        		int numDestroyedPlanets = lastKnownPlanets.size() - currentPlanets.size();
-        		updateHitmap(hitmap, lastKnownPlanets, currentPlanets, numDestroyedPlanets, usedFudge);
-        		lastKnownPlanets = currentPlanets;
-        	}
-            HashMap<Integer, Position> currentPostions = listEnemyShipPositions(gameMap);
-            if(!lastPositions.isEmpty()) {
-            	expectedPositions = estimateShipPositions(currentPostions, lastPositions);
-            }
             
             ArrayList<Planet> targetedFreePlanets = new ArrayList<>();
             		
             int ship_id = 0;		
-            double range = Math.min(gmWidth, (double)(0.10*gameMap.getMyPlayer().getShips().size()*distanceUnit));
+            double range = Math.min(gameMap.getWidth(), (double)(0.10*gameMap.getMyPlayer().getShips().size()*distanceUnit));
             
             for (final Ship ship : gameMap.getMyPlayer().getShips().values()) {
-
-            	if(tasks.containsKey(ship.getId())) {
-            		Task currentTask = tasks.get(ship.getId());
-            		TaskStatus currentStatus = currentTask.checkStatus();
-            		if(currentStatus != TaskStatus.Invalid) {
-            			if(currentTask.isAttackType() && expectedPositions.containsKey(currentTask.getTargetId())) {
-            				currentTask.setEstimatedPos(expectedPositions.get(currentTask.getTargetId()));
-            			}
-            			//setObstructedPositions
-            			Move move = currentTask.computeMove();
-            			//getExpectedPos() and set this in an updated liveHitMap
-            			if(move != null) {
-            				moveList.add(move);
-            				if(currentStatus == TaskStatus.WillDock) {
-            					newTasks.put(ship.getId(), new Task(ship, gameMap, TaskType.Dock, currentTask.getTarget()));
-            				} else {
-                				newTasks.put(ship.getId(), currentTask);
-            				}
-                			continue;
-            			}
-            		}
-            	}
-            	
-            	
-            
-            	
                 Map<Double, Entity> entities_by_dist = gameMap.nearbyEntitiesByDistance(ship);
                 if (ship.getDockingStatus() != Ship.DockingStatus.Undocked) {
             		//Log.log("Ship " + ship.getId() + ": (docked) \n");
@@ -119,7 +63,6 @@ public class ModifiedBot {
 
 
             }
-            tasks = newTasks;
             Networking.sendMoves(moveList);
         }
     }
@@ -131,9 +74,9 @@ public class ModifiedBot {
 				  Ship targetShip = (Ship) targetEntity.getValue();
 				  if(targetShip.getOwner() != gameMap.getMyPlayerId()) { //none of my own ships
 					  if(thisShip.getDistanceTo(targetShip) <= Constants.WEAPON_RADIUS + 1) {
-						  return Navigation.navigateShipToClosestPoint(gameMap, thisShip, targetShip, Constants.MAX_SPEED/2);
+						  return Navigation.navigateShipToClosestPoint(gameMap, thisShip, targetShip, Constants.MAX_SPEED/3);
 					  } else {
-						  return Navigation.navigateShipToClosestPoint(gameMap, thisShip, targetShip, (int)(Constants.MAX_SPEED * 0.9));
+						  return Navigation.navigateShipToClosestPoint(gameMap, thisShip, targetShip, (int)(Constants.MAX_SPEED * 0.7));
 					  }
 				  }
 			  }
@@ -158,7 +101,7 @@ public class ModifiedBot {
 		if (thisShip.canDock(targetPlanet)) {
 			return new DockMove(thisShip, targetPlanet);
 		} else {
-			return Navigation.navigateShipToClosestPoint(gameMap, thisShip, targetPlanet, Constants.MAX_SPEED);
+			return Navigation.navigateShipToClosestPoint(gameMap, thisShip, targetPlanet, Constants.MAX_SPEED/2);
 		}
 	}
 	
@@ -312,96 +255,4 @@ public class ModifiedBot {
 				
 		return bestAnyPlanet; //may be null -> all Planets owned by someone else
 	}
-	
-	static HashMap<Integer, Position> listEnemyShipPositions(GameMap gameMap){
-		HashMap<Integer, Position> shipPositions = new HashMap<>();
-		for(Ship s : gameMap.getAllShips()) {
-			if(s.getOwner() != gameMap.getMyPlayerId()) {
-				shipPositions.put(s.getId(), s);
-			}
-		}
-		return shipPositions;
-	}
-	
-    static HashMap<Integer, Position> estimateShipPositions(HashMap<Integer, Position> currentPositions, HashMap<Integer, Position> oldPositions){
-		HashMap<Integer, Position> estimatedPositions = new HashMap<>();
-		
-		for(Map.Entry<Integer, Position> shipEntry : oldPositions.entrySet()) {
-			Position lastPos = shipEntry.getValue();
-			Position currentPos = currentPositions.get(shipEntry.getKey());
-			estimatedPositions.put(shipEntry.getKey(), Position.getOppositePos(currentPos, lastPos));
-		}
-		
-		return estimatedPositions;
-    }
-    
-    static boolean[][] createHitmap(GameMap gameMap, double fudge){
-		Log.log(" ##### creating hitmap ##### ");
-
-    	int gm_width = gameMap.getWidth();
-        int gm_height = gameMap.getHeight();
-    	boolean[][] hitmap = new boolean[gm_width][gm_height];
-        for(int i = 0; i < hitmap.length; i++) {
-            Arrays.fill( hitmap[i], false);
-        }
-        
-        for(Map.Entry<Integer, Planet> entry : gameMap.getAllPlanets().entrySet()) {
-        	Planet planet = entry.getValue();
-            double radius = planet.getRadius();
-
-        	int minX = (int) (planet.getXPos() - (radius + fudge));
-        	int maxX = (int) (planet.getXPos() + radius + fudge);
-        	int minY = (int) (planet.getYPos() - (radius + fudge));
-        	int maxY = (int) (planet.getYPos() + radius + fudge);
-        	for(int i = minX; i < maxX; i++) {
-        		for(int j = minY; j < maxY; j++) {
-        			if(Collision.pointInsideCircle(new Position(i,j), planet, fudge)) {
-        				hitmap[i][j] = true;
-        				//Log.log("(creating collision point, " + i + ")");
-        			}
-        		}
-        	}
-        }
-        return hitmap;
-    }
-	
-
-    static boolean[][] updateHitmap(boolean[][] hitmap, Map<Integer,Planet> previousPlanets, Map<Integer, Planet> currentPlanets, int numDestroyedPlanets, double fudge){    	int planetsToRemove = numDestroyedPlanets;
-		Log.log(" ##### updating hitmap ##### ");
-
-    
-    	boolean[][] updatedHitmap = hitmap;
-        for(Map.Entry<Integer, Planet> prEntry : previousPlanets.entrySet()) {
-    		if(!currentPlanets.containsKey(prEntry.getKey())) {
-    		
-    			planetsToRemove--;
-    			Planet destroyedPlanet = prEntry.getValue();
-    			double radius = destroyedPlanet.getRadius();
-    			
-    			int minX = (int) (destroyedPlanet.getXPos() - (radius + fudge));
-            	int maxX = (int) (destroyedPlanet.getXPos() + radius + fudge);
-            	int minY = (int) (destroyedPlanet.getYPos() - (radius + fudge));
-            	int maxY = (int) (destroyedPlanet.getYPos() + radius + fudge);
-            	
-            	for(int i = minX; i < maxX; i++) {
-            		for(int j = minY; j < maxY; j++) {        				
-            			updatedHitmap[i][j] = false;
-            		}
-            	}
-    			
-    			if(planetsToRemove==0) {
-    				return updatedHitmap;
-    			}
-    		}
-
-        }
-		return null;
-
-    }
-    
-    static Task createTask(Ship ship, GameMap gameMap, Status gameStatus) {
-		return null;
-    	
-    }
-	
 }
