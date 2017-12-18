@@ -5,7 +5,7 @@ import java.util.ArrayList;
 import java.util.Map;
 import java.util.TreeMap;
 
-public class ModifiedBot {
+public class MBotB {
 
 	private static double distanceUnit;
 	

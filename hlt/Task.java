@@ -5,9 +5,27 @@ import hlt.Ship.DockingStatus;
 public class Task {
 	
 	public enum TaskStatus { Valid, WillDock, Invalid }
-    public enum TaskType { Attack, Defensive, Conquer, Diversion, Production, Expand, Reinforce, Dock }
+    public enum TaskType { Attack, Defensive, Conquer, Diversion, Production, Expand, Reinforce, Dock;
+    	
+
+    	  @Override
+    	  public String toString() {
+    	    switch(this) {
+    	      case Attack: return "[attack]";
+    	      case Defensive: return "[defensive]";
+    	      case Conquer: return "[conquer]";
+    	      case Diversion: return "[diversion]";
+    	      case Production: return "[production]";
+    	      case Expand: return "[expand]";
+    	      case Reinforce: return "[reinforce]";
+    	      case Dock: return "[dock]";
+    	      default: throw new IllegalArgumentException();
+    	    }
+    	  }
+    	  
+    	}
     /*
-     * The 2 basic types are Attack and Production, the other types are more advanced tactics.
+     * The 2 basic types are Attack and Production, the other types may be more advanced tactics.
      * 
      * Attack: Attack any enemy ship
      * Defensive: Attack ships targeting docked ships (Advanced)
@@ -41,6 +59,8 @@ public class Task {
 	 */
 	public Move computeMove() {
 		//TODO
+		int speed = Constants.MAX_SPEED;
+
 		Move move = null;
 		switch(type) {
 		case Diversion:
@@ -54,29 +74,30 @@ public class Task {
 			//break;
 		case Attack:
 			Ship targetShip = (Ship) target;
-
+			if(thisShip.getDistanceTo(targetShip) <= Constants.WEAPON_RADIUS + 3) {
+				speed -= 3;
+			}
 			if(estimatedPos == null) { //no position given
-				if(thisShip.getDistanceTo(targetShip) <= Constants.WEAPON_RADIUS + 1) {
-					  move = Navigation.navigateShipToClosestPoint(gameMap, thisShip, targetShip, Constants.MAX_SPEED/2);
-				  } else {
-					  move = Navigation.navigateShipToClosestPoint(gameMap, thisShip, targetShip, (int)(Constants.MAX_SPEED * 0.9));
-				  }
+				move = Navigation.navigateShipToClosestPoint(gameMap, thisShip, targetShip, speed);
 			} else { //move to the estimated position
-				if(thisShip.getDistanceTo(targetShip) <= Constants.WEAPON_RADIUS + 3) {
-					move = Navigation.navigateShipToPoint(gameMap, thisShip, estimatedPos, Constants.MAX_SPEED/2);
-				} else {
-					move = Navigation.navigateShipToPoint(gameMap, thisShip, estimatedPos, Constants.MAX_SPEED);
+				if(thisShip.getDistanceTo(targetShip) <= Constants.WEAPON_RADIUS + 5) {
+					speed -= 1;
 				}
+				move = Navigation.navigateShipToPoint(gameMap, thisShip, estimatedPos, speed);
 			}
 			break;
 		case Expand:
 		case Reinforce:
 		case Production:
 			Planet targetPlanet = (Planet) target;
+			Log.log("Task.Move:Production, distance to planet: " + thisShip.getDistanceTo(targetPlanet)+ "\n");
 			if (thisShip.canDock(targetPlanet)) {
 				move = new DockMove(thisShip, targetPlanet);
-			} else {
-				move = Navigation.navigateShipToClosestPoint(gameMap, thisShip, targetPlanet, Constants.MAX_SPEED);
+			} else {;
+				if(thisShip.getDistanceTo(targetPlanet) <= Constants.MAX_BREAK_DISTANCE) {
+					speed = speed-4;
+				}
+				move = Navigation.navigateShipToClosestPoint(gameMap, thisShip, targetPlanet, speed);
 			}
 			break;
 		case Dock:
@@ -84,7 +105,8 @@ public class Task {
 			if (thisShip.canDock(tPlanet)) {
 				move = new DockMove(thisShip, tPlanet);
 			} else {
-				move = Navigation.navigateShipToClosestPoint(gameMap, thisShip, tPlanet, Constants.MAX_SPEED);
+				speed = speed -3;
+				move = Navigation.navigateShipToClosestPoint(gameMap, thisShip, tPlanet, speed);
 			}
 			break;
 		default:
@@ -92,6 +114,12 @@ public class Task {
 		}
 		estimatedPos = null;
 		return move;
+	}
+	public boolean isNoTargetType() { //also means target is of type ship
+		if(type == TaskType.Diversion) {
+			return true;
+		}
+		return false;
 	}
 	
 	public boolean isAttackType() { //also means target is of type ship
@@ -116,38 +144,78 @@ public class Task {
 		return target;
 	}
 	
-	public TaskStatus checkStatus() {
-		//check if the current Task is valid (target planet is still a planet to dock on etc.)
+	public void update(GameMap gameMap, Ship currentShip) {
+		
+		thisShip = currentShip;
 
 		if(isAttackType()) {
-			if(!gameMap.getAllShips().contains(target)) {
-				return TaskStatus.Invalid;
-			}
-		} else if(isDockType()){
+			Log.log("updating Task, target ship id = " + target.getId());
+
+			target = gameMap.findShip(target.getId());
+		} else if(isDockType()) {
+			target = gameMap.getPlanet(target.getId());
+		} else {
+			//TODO
+		}
+		Log.log("updating Task, rest assigned");
+
+		
+	}
+	
+	public TaskStatus getStatus() {
+		//check if the current Task is valid (target planet is still a planet to dock on etc.)
+		
+		if(!isNoTargetType() && target == null) {
+			Log.log("Task:Invalid ->Target does not exist");
+			return TaskStatus.Invalid;
+		}
+
+		if(isDockType()){
 			int myId = gameMap.getMyPlayerId();
 
+			
+			if((target.getOwner() != myId && target.getOwner() != -1) || ((Planet)target).isFull()){
+				Log.log("Task:Invalid -> target planet is not dockable");
+				return TaskStatus.Invalid;
+			}
 			if (type == TaskType.Dock) {
-				if(thisShip.getDockingStatus() == DockingStatus.Docked || thisShip.getDockingStatus() == DockingStatus.Docking) {
+				if(thisShip.getDockingStatus() != DockingStatus.Docked && thisShip.getDockingStatus() != DockingStatus.Docking) {
 					return TaskStatus.Valid;
-				}
-				if(!thisShip.canDock((Planet)target)) {
+				} else if(!thisShip.canDock((Planet)target)) {
+					Log.log("Task:Invalid -> ship can't dock this planet");
 					return TaskStatus.Invalid;
 				}
 			}
-			if(!gameMap.getAllPlanets().containsValue(target) || (target.getOwner() != myId && target.getOwner() != -1) || ((Planet)target).isFull()){
-				return TaskStatus.Invalid;
-			}
 			if(type == TaskType.Expand && target.getOwner() != -1) {
+				Log.log("Task:Invalid -> (expand) planet is not unowned");
+
 				return TaskStatus.Invalid;
 			} else if(type == TaskType.Reinforce && target.getOwner() != myId) {
+				Log.log("Task:Invalid -> (reinforce) planet is not owned by this player");
+
 				return TaskStatus.Invalid;
 			}
 			if (thisShip.canDock((Planet)target)) {
+				Log.log("Task:WillDock -> ship can dock this planet");
+
 				return TaskStatus.WillDock;
 			}
 
 		}
 		return TaskStatus.Valid;
+	}
+	
+	public TaskType getType() {
+		return type;
+	}
+	
+	public Position getExpectedPos() {
+		//TODO
+		return null;
+	}
+	
+	public void setObstructedPositions() {
+		
 	}
 	
 	public boolean isEqualTo(Task compTask) {

@@ -35,6 +35,7 @@ public class Constants {
     /** Distance from the edge of the planet at which ships can try to dock */
     public static final double DOCK_RADIUS = 4.0;
 
+
     /** Number of turns it takes to dock a ship */
     public static final int DOCK_TURNS = 5;
 
@@ -55,4 +56,8 @@ public class Constants {
      * Minimum distance specified from the object's outer radius.
      */
     public static final int MIN_DISTANCE_FOR_CLOSEST_POINT = 3;
+    
+    
+    
+    public static final int MAX_BREAK_DISTANCE = MAX_SPEED + 1;
 }

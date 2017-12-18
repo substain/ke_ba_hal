@@ -53,7 +53,30 @@ public class GameMap {
     public Ship getShip(final int playerId, final int entityId) throws IndexOutOfBoundsException {
         return players.get(playerId).getShip(entityId);
     }
+    
+    /**
+     *@return null if the ship could not be found
+     */
+    public Ship findShip( final int entityId) {
+    	for(Ship s : allShips) {
+    		if(s.getId() == entityId) {
+    			return s;
+    		}
+    	}
+    	return null;
+    }
+    
+    /*
 
+    public Planet findPlanet( final int entityId) {
+    	for(Planet p : planets) {
+    		if(p.getId() == entityId) {
+    			return p;
+    		}
+    	}
+    	return null;
+    }*/
+    
     public Planet getPlanet(final int entityId) {
         return planets.get(entityId);
     }
