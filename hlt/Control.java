@@ -210,7 +210,7 @@ public class Control {
 	public TaskType getNextTypeAndUpdate() {
 		TaskType addedType = null;
 		
-		String debug = "";
+		//String debug = "";
 
 		if(nDynShips == 0) { //no entry yet
 			double biggestRatio = 0;
@@ -225,8 +225,8 @@ public class Control {
 				}
 			}
 			addedType = getTaskTypeByIndex(indexOfBiggest);
-			debug += "Control:returned type (first): " + addedType.toString() + "\n";
-			Log.log(debug);
+			//debug += "Control:returned type (first): " + addedType.toString();
+			//Log.log(debug);
 
 			increaseShipNum(addedType);
 			return addedType;
@@ -252,8 +252,8 @@ public class Control {
 		addedType = getTaskTypeByIndex(maxDifIndex);
 		//debug += "), Task " + (nDynShips+1) + ", maxPosDif = " + maxPosDif + ", dynNumShips[max] = " + dynNumShips[maxDifIndex];
 		
-		debug += "Control: returned type: " + addedType.toString() + "\n";
-		Log.log(debug);
+		//debug += "Control: returned type: " + addedType.toString() + "\n";
+		//Log.log(debug);
 		increaseShipNum(addedType);
 		return addedType;
 	}

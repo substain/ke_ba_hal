@@ -8,7 +8,7 @@ public class GenAlgo {
 	public static final int NUM_ATTS = 8;
 	public static final int ATT_MAX = 30;
 	public static final int MAX_POPULATION_SIZE = 8;
-	public static final int NUM_ITERATIONS = 8;
+	public static final int NUM_ITERATIONS = 30;
 	public static final int NUM_PARENT_INDV = 4; //should be even
 	public static final int NUM_CHILD_MUT = 1; //should not be larger than NUM_PARENT_INDV/2
 
@@ -136,7 +136,7 @@ public class GenAlgo {
 	}
 	
 	public void finalize() {
-		while(population.size() < MAX_POPULATION_SIZE) {
+		while(population.size() < MAX_POPULATION_SIZE && !population.isEmpty()) {
 			int highestScore = -100;
 			int h_id = 0;
 			for(Individual ip : restPopulation) {

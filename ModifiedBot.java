@@ -1,4 +1,5 @@
 import hlt.*;
+import hlt.Move.MoveType;
 import hlt.Ship.DockingStatus;
 import hlt.Task.TaskStatus;
 import hlt.Task.TaskType;
@@ -6,6 +7,7 @@ import hlt.Task.TaskType;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -16,6 +18,7 @@ public class ModifiedBot {
     public static void main(final String[] args) {
         final Networking networking = new Networking();
         final GameMap gameMap = networking.initialize("ModdedBot");
+        
         
         int myId = gameMap.getMyPlayerId();
         int gmWidth = gameMap.getWidth();
@@ -69,32 +72,39 @@ public class ModifiedBot {
         Log.log("distUnit = " + distanceUnit);
 
         //create a map of coordinates, where true means a planet (or its safety-zone) is on that coordinate
-        boolean[][] hitmap = createHitmap(gameMap, usedFudge);
-        
+        boolean[][] hitmap = createHitmap(gameMap, usedFudge); //TODO only keep this in PathFinder
+        final PathFinder pfinder = new PathFinder(hitmap);
+
         HashMap<Integer, Task> tasks = new HashMap<>();
         HashMap<Integer, Position> lastPositions = new HashMap<>();
 
         final ArrayList<Move> moveList = new ArrayList<>();
+        
+        //HashMap<Integer, Position> lastShipPositions = new HashMap<>();
+        //HashMap<Integer, Position> currentShipPositions = new HashMap<>();
 
         
         int rounds = 0;
         for (;;) {
-        	
-        	Log.log("debug: initround");
-            moveList.clear();
+        	moveList.clear();
             networking.updateMap(gameMap);
             controller.setDynPossibleTasks(gameMap);
             //Status.update(gameMap);
             
             HashMap<Integer, Task> newTasks = new HashMap<>();
-        	HashMap<Integer, Position> expectedPositions = new HashMap<>();
 
+        	//check if hitmap is up to date
             Map<Integer, Planet> currentPlanets = gameMap.getAllPlanets();
         	if(currentPlanets.size() < lastKnownPlanets.size()) {
         		int numDestroyedPlanets = lastKnownPlanets.size() - currentPlanets.size();
-        		updateHitmap(hitmap, lastKnownPlanets, currentPlanets, numDestroyedPlanets, usedFudge);
+        		hitmap = updateHitmap(hitmap, lastKnownPlanets, currentPlanets, numDestroyedPlanets, usedFudge);
+        		pfinder.updateMap(hitmap);
         		lastKnownPlanets = currentPlanets;
         	}
+        	boolean[][] currentHitmap = hitmap; // this copy is updated with the ship positions computed this turn to avoid collisions
+        	
+        	//compute expected ship movements this turn, only using the last turns positions
+        	HashMap<Integer, Position> expectedPositions = new HashMap<>();
             HashMap<Integer, Position> currentPostions = listEnemyShipPositions(gameMap);
             if(!lastPositions.isEmpty()) {
             	expectedPositions = estimateShipPositions(currentPostions, lastPositions);
@@ -107,7 +117,7 @@ public class ModifiedBot {
             double range = Math.min(gmWidth, (double)(0.10*gameMap.getMyPlayer().getShips().size()*distanceUnit));
             
             for (final Ship ship : gameMap.getMyPlayer().getShips().values()) {
-            	Log.log("debug: compute ship" + ship_count + ", id:" + ship.getId());
+            	Log.log("debug: ship" + ship_count + ", id:" + ship.getId() + ", pos:" + ship.getXPos() +"|"+ ship.getYPos());
             	ship_count++;
             	if(tasks.containsKey(ship.getId())) {
             		Task currentTask = tasks.get(ship.getId());
@@ -124,6 +134,14 @@ public class ModifiedBot {
             			//getExpectedPos() and set this in an updated liveHitMap
             			if(move != null) {
             				moveList.add(move);
+            				if(move.getType() == MoveType.Thrust) {
+            					ThrustMove tm = (ThrustMove) move;
+            					Position taskTarget = currentTask.getTarget();
+            					Position expectedPos = Navigation.getExpectedPos(ship, taskTarget, tm.getThrust());
+            					int expectedX = (int) expectedPos.getXPos();
+            					int expectedY = (int) expectedPos.getYPos();
+            					currentHitmap[expectedX][expectedY] = true;
+            				}
                         	
             				if(currentTask.getType() != TaskType.Dock) {
                 				controller.increaseShipNum(currentTask.getType());
@@ -485,7 +503,8 @@ public class ModifiedBot {
     }
 	
 
-    static boolean[][] updateHitmap(boolean[][] hitmap, Map<Integer,Planet> previousPlanets, Map<Integer, Planet> currentPlanets, int numDestroyedPlanets, double fudge){    	int planetsToRemove = numDestroyedPlanets;
+    static boolean[][] updateHitmap(boolean[][] hitmap, Map<Integer,Planet> previousPlanets, Map<Integer, Planet> currentPlanets, int numDestroyedPlanets, double fudge){    	
+    	int planetsToRemove = numDestroyedPlanets;
 		Log.log(" ##### updating hitmap ##### ");
 
     
@@ -514,7 +533,7 @@ public class ModifiedBot {
     		}
 
         }
-		return null;
+		return updatedHitmap;
 
     }
     
@@ -529,11 +548,38 @@ public class ModifiedBot {
 		return null;
     	
     }
-
-
     
-    static boolean ownPlanetsHaveSpace(GameMap map) {
-    	return false;
+    /**
+     * takes a sorted list of planets and starts building LinkedSpace objects around them
+     */
+    static void parseLS(LinkedList<Planet> sortedPlanets) {
+    	for(Planet p : sortedPlanets) {
+    		
+    	}
+    }
+    
+    /**
+     * takes a planet and starts building LinkedSpace objects around them
+     */
+    static void parseLS(GameMap gameMap, Planet midPl) { //TODO
+    	Map<Integer, Planet> restPlanets = gameMap.getAllPlanets();
+    	LinkedSpace ls1 = new LinkedSpace(midPl);
+    	restPlanets.remove(midPl.getId());
+    	while(!restPlanets.isEmpty()) {
+    		//get mid planet...
+    	}
+    	int x_line = (int) midPl.getYPos(); // a line parallel to the x-axis at y
+    	int y_line = (int) midPl.getXPos(); // a line parallel to the y-axis at x
+
+    }
+    
+    static LinkedList<LinkedSpace> parseLSrec(Map<Integer, Planet> restPlanets, LinkedList<LinkedSpace> linkedSpaces) { //TODO
+    	if(restPlanets.isEmpty()) {
+    		return linkedSpaces;
+    	}
+    	//getMidPlanet
+
+    	return null;
     }
     
 }

@@ -10,7 +10,14 @@ public class Position {
         this.yPos = yPos;
     }
 
-    public double getXPos() {
+    public Position(MapNode mnode) {
+    	this.xPos = (double) mnode.getX();
+    	this.yPos = (double) mnode.getY();
+
+		// TODO Auto-generated constructor stub
+	}
+
+	public double getXPos() {
         return xPos;
     }
 

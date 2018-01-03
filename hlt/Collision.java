@@ -53,7 +53,6 @@ public class Collision {
         return num * num;
     }
     
-    //fudge is, again, a value for a safety zone
     public static boolean pointInsideCircle(final Position point, final Entity circle, final double fudge) {
     	final double px = point.getXPos();
     	final double py = point.getYPos();

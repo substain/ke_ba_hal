@@ -57,7 +57,7 @@ public class MBotA {
     }
 	
 	static private Move offensiveBehavior(Ship thisShip, Map<Double, Entity> dist_sorted_entities, GameMap gameMap) {
-        //final ThrustMove newThrustMove = Navigation.navigateShipToDock(gameMap, ship, planet, Constants.MAX_SPEED/2);
+        //final ThrustMove newThrustMove = Navigation.navigateShipToDock(gameMap, ship, planet, Constants.MAX_SPEED);
 		for(Map.Entry<Double,Entity> targetEntity : dist_sorted_entities.entrySet()) {
 			  if(targetEntity.getValue() instanceof Ship) {
 				  Ship targetShip = (Ship) targetEntity.getValue();
@@ -82,7 +82,7 @@ public class MBotA {
 					  if (thisShip.canDock(targetPlanet)) {
 		                return new DockMove(thisShip, targetPlanet);
 					  } else {
-						return Navigation.navigateShipToClosestPoint(gameMap, thisShip, targetPlanet, Constants.MAX_SPEED/2);
+						return Navigation.navigateShipToClosestPoint(gameMap, thisShip, targetPlanet, Constants.MAX_SPEED);
 					  }
 				  }
 			  }
@@ -99,7 +99,7 @@ public class MBotA {
 					  if (thisShip.canDock(targetPlanet)) {
 		                return new DockMove(thisShip, targetPlanet);
 					  } else {
-						return Navigation.navigateShipToClosestPoint(gameMap, thisShip, targetPlanet, Constants.MAX_SPEED/2);
+						return Navigation.navigateShipToClosestPoint(gameMap, thisShip, targetPlanet, Constants.MAX_SPEED);
 					  }
 				  }
 			  }

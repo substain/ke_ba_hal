@@ -42,6 +42,7 @@ public class Task {
 	TaskType type;
 	GameMap gameMap;
 	
+	
 	public Task(Ship ship, GameMap gmap, TaskType ttype, Entity ttarget) {
 		thisShip = ship;
 		target = ttarget;
@@ -78,11 +79,13 @@ public class Task {
 				speed -= 3;
 			}
 			if(estimatedPos == null) { //no position given
+				Log.log("computeMove: navigation to " + targetShip.getXPos() + "|" + targetShip.getYPos() + " with speed " + speed + ", expected pos = " + Navigation.getExpectedPos(thisShip, targetShip, speed));
 				move = Navigation.navigateShipToClosestPoint(gameMap, thisShip, targetShip, speed);
 			} else { //move to the estimated position
 				if(thisShip.getDistanceTo(targetShip) <= Constants.WEAPON_RADIUS + 5) {
 					speed -= 1;
 				}
+				Log.log("computeMove: navigation to " + estimatedPos.getXPos() + "|" + estimatedPos.getYPos() + " with speed " + speed + ", expected pos = " + Navigation.getExpectedPos(thisShip, targetShip, speed));
 				move = Navigation.navigateShipToPoint(gameMap, thisShip, estimatedPos, speed);
 			}
 			break;
@@ -90,13 +93,14 @@ public class Task {
 		case Reinforce:
 		case Production:
 			Planet targetPlanet = (Planet) target;
-			Log.log("Task.Move:Production, distance to planet: " + thisShip.getDistanceTo(targetPlanet)+ "\n");
+			Log.log("Task.Move:Production, distance to planet: " + thisShip.getDistanceTo(targetPlanet));
 			if (thisShip.canDock(targetPlanet)) {
 				move = new DockMove(thisShip, targetPlanet);
 			} else {;
 				if(thisShip.getDistanceTo(targetPlanet) <= Constants.MAX_BREAK_DISTANCE) {
 					speed = speed-4;
 				}
+				Log.log("computeMove: navigation to " + targetPlanet.getXPos() + "|" + targetPlanet.getYPos() + " with speed " + speed + ", expected pos = " + Navigation.getExpectedPos(thisShip, targetPlanet, speed));
 				move = Navigation.navigateShipToClosestPoint(gameMap, thisShip, targetPlanet, speed);
 			}
 			break;
