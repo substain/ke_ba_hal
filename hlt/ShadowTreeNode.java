@@ -11,6 +11,7 @@ public class ShadowTreeNode {
 	
 	TreeMap<Double, ShadowTreeNode> children;
 	boolean isLeaf;
+	boolean isRoot;
 	
 	Position leftEdge;
 	double leftAngle; //higher angle
@@ -34,6 +35,7 @@ public class ShadowTreeNode {
 		rightEdge = null;
 		leftAngle = 360;
 		rightAngle = 0;
+		isRoot = true;;
 		leftMaxAngle = leftAngle;
 		rightMinAngle = rightAngle;
 
@@ -89,7 +91,7 @@ public class ShadowTreeNode {
 	
 	//ONLY WORKS FOR PLANETS WITH pl.dist > this.dist
 	public void insertSTN(ShadowTreeNode plSTN) {
-		//Log.log("debug:STN: calling insert");
+		Log.log("debug:STN: calling insert");
 		if(leftMaxAngle < plSTN.getLeftAngle()) {
 			leftMaxAngle = plSTN.getLeftAngle();
 		}
@@ -108,7 +110,7 @@ public class ShadowTreeNode {
 
 
 	protected void insertChild(ShadowTreeNode stn) {
-		//Log.log("debug:STN: calling insertChild");
+		Log.log("debug:STN: calling insertChild");
 
 		isLeaf = false;
 		children.put(stn.getRightAngle(), stn);
@@ -187,6 +189,13 @@ public class ShadowTreeNode {
 		
 		if(key != null) {
 			addedPositions = children.get(key).getPathFromPositionRec(angle, dist, addedPositions);
+		} else {
+			if(angle > getMidAngle()) {
+				addedPositions.add(leftEdge);
+			} else {
+				addedPositions.add(rightEdge);
+			}
+			return addedPositions;
 		}
 		
 
@@ -200,7 +209,7 @@ public class ShadowTreeNode {
 	}
 
 	private Double findKey(double angle) {
-		//Log.log("debug:STN: calling findKey");
+		Log.log("debug:STN: calling findKey");
 
 		Set<Double> keyAngles = children.keySet(); //sorted in ascending order
 		Iterator<Double> kit = keyAngles.iterator();
@@ -240,7 +249,7 @@ public class ShadowTreeNode {
 	}
 	
 	public boolean angleInRange(double angle) {
-		//Log.log("debug:STN: calling angleInRange");
+		Log.log("debug:STN: calling angleInRange");
 
 		if(angle > leftAngle || angle < rightAngle) { //TODO
 			return false; //angle out of range
@@ -249,7 +258,7 @@ public class ShadowTreeNode {
 	}
 	
 	public boolean angleInSubTreeRange(double angle) {
-		//Log.log("debug:STN: calling angleInRange");
+		Log.log("debug:STN: calling angleInSubTreeRange");
 
 		if(angle > leftMaxAngle || angle < rightMinAngle) { //TODO
 			return false; //angle out of range

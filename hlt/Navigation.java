@@ -64,6 +64,42 @@ public class Navigation {
 
         return new ThrustMove(ship, angleDeg, thrust);
     }
+
+    
+    
+    
+    public static ThrustMove navigateShipTowardsPathTarget(
+            final GameMap gameMap,
+            final Ship ship,
+            final Position targetPos,
+            final int maxThrust,
+            final Position pathPos,
+            final double angularStepRad
+            )
+    {
+
+
+        final double distance = ship.getDistanceTo(targetPos);
+        final double angleRad = ship.orientTowardsInRad(targetPos);
+
+        if (!gameMap.objectsBetween(ship, targetPos).isEmpty()) {
+
+            return navigateShipTowardsTarget(gameMap, ship, pathPos, maxThrust, true, Constants.MAX_NAVIGATION_CORRECTIONS, angularStepRad);
+        }
+
+        final int thrust;
+        if (distance < maxThrust) {
+            // Do not round up, since overshooting might cause collision.
+            thrust = (int) distance;
+        }
+        else {
+            thrust = maxThrust;
+        }
+
+        final int angleDeg = Util.angleRadToDegClipped(angleRad);
+
+        return new ThrustMove(ship, angleDeg, thrust);
+    }
         
     public static Position getExpectedPos(Position origin, Position target, int speed) {
     	final double angularStepRad = Math.PI/180.0;

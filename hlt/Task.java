@@ -8,7 +8,6 @@ import hlt.Ship.DockingStatus;
 public class Task {
 	
 	public static final int NUM_ACTIVE_TYPES = 6;
-	
 	public enum TaskStatus { Valid, WillDock, Invalid }
     public enum TaskType { AttackAny, Defensive, Conquer, Diversion, Expand, Reinforce, Dock;
     	
@@ -47,7 +46,8 @@ public class Task {
 	GameMap gameMap;
 	LinkedList<Position> path;
 	boolean needsPath;
-	
+	final double angularStepRad = Math.PI/180.0;
+
 	public Task(Ship ship, GameMap gmap, TaskType ttype, Entity ttarget) {
 		thisShip = ship;
 		target = ttarget;
@@ -122,7 +122,11 @@ public class Task {
 			if(thisShip.getDistanceTo(ctargetShip) <= Constants.WEAPON_RADIUS + 3) {
 				speed -= 2;
 			}
-			move = Navigation.navigateShipToClosestPoint(gameMap, thisShip, ctargetShip, speed);
+			if(!needsPath) {
+				move = Navigation.navigateShipTowardsPathTarget(gameMap, thisShip, ctargetShip, speed, path.getFirst(), angularStepRad);
+			} else {
+				move = Navigation.navigateShipToClosestPoint(gameMap, thisShip, ctargetShip, speed);
+			}
 		case AttackAny:
 			Ship targetShip = (Ship) target;
 			if(thisShip.getDistanceTo(targetShip) <= Constants.WEAPON_RADIUS + 3) {
@@ -130,7 +134,11 @@ public class Task {
 			}
 			if(estimatedPos == null) { //no position given
 				//Log.log("computeMove: navigation to " + targetShip.getXPos() + "|" + targetShip.getYPos() + " with speed " + speed + ", expected pos = " + Navigation.getExpectedPos(thisShip, targetShip, speed));
-				move = Navigation.navigateShipToClosestPoint(gameMap, thisShip, targetShip, speed);
+				if(!needsPath) {
+					move = Navigation.navigateShipTowardsPathTarget(gameMap, thisShip, targetShip, speed, path.getFirst(), angularStepRad);
+				} else {
+					move = Navigation.navigateShipToClosestPoint(gameMap, thisShip, targetShip, speed);
+				}
 			} else { //move to the estimated position
 				if(thisShip.getDistanceTo(targetShip) <= Constants.WEAPON_RADIUS + 5) {
 					speed -= 1;
@@ -150,7 +158,11 @@ public class Task {
 					speed = speed-4;
 				}
 				//Log.log("computeMove: navigation to " + targetPlanet.getXPos() + "|" + targetPlanet.getYPos() + " with speed " + speed + ", expected pos = " + Navigation.getExpectedPos(thisShip, targetPlanet, speed));
-				move = Navigation.navigateShipToClosestPoint(gameMap, thisShip, targetPlanet, speed);
+				if(!needsPath) {
+					move = Navigation.navigateShipTowardsPathTarget(gameMap, thisShip, targetPlanet, speed, path.getFirst(), angularStepRad);
+				} else {
+					move = Navigation.navigateShipToClosestPoint(gameMap, thisShip, targetPlanet, speed);
+				}
 			}
 			break;
 		case Dock:

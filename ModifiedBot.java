@@ -230,7 +230,7 @@ public class ModifiedBot {
             			//TODO: use pathfinder here
             			
             			if(currentTask.needsPath()) {
-                			//shPathFinder.getPathToPos(ship, currentTask.getTarget(), gameMap);
+                			shPathFinder.getPathToPos(ship, currentTask.getTarget(), gameMap);
             			}
             			
             			//TODO: setObstructedPositions here
@@ -278,15 +278,21 @@ public class ModifiedBot {
             	ship_id++;
             	
             	Task nTask;
-            	TaskType newType = controller.getNextTypeAndUpdate(); // TODO : implement / use
-            	//TODO Distraction Coverage
+            	TaskType newType = controller.getNextTypeAndUpdate(); 
             	switch(newType) {
             	case Diversion:
             		Ship tShip = getNearestEnemyShip(ship, entities_by_dist, gameMap);
                 	if(tShip != null) {
                     	nTask = new Task(ship, gameMap, TaskType.Diversion, tShip);
+
                     	if(expectedPositions.containsKey(tShip.getId())) {
-                    		nTask.setEstimatedPos(expectedPositions.get(tShip.getId()));
+                    		Position estPos = expectedPositions.get(tShip.getId());
+                    		nTask.setEstimatedPos(estPos);
+                        	nTask.setPath(shPathFinder.getPathToPos(ship, estPos, gameMap));
+
+            			} else {
+                        	nTask.setPath(shPathFinder.getPathToPos(ship, tShip, gameMap));
+
             			}
                     	Move move = nTask.computeMove();
             			if(move != null) {
@@ -301,7 +307,12 @@ public class ModifiedBot {
                 	if(targetShip != null) {
                     	nTask = new Task(ship, gameMap, TaskType.AttackAny, targetShip);
                     	if(expectedPositions.containsKey(targetShip.getId())) {
-                    		nTask.setEstimatedPos(expectedPositions.get(targetShip.getId()));
+                    		Position estPos = expectedPositions.get(targetShip.getId());
+                    		nTask.setEstimatedPos(estPos);
+                        	nTask.setPath(shPathFinder.getPathToPos(ship, estPos, gameMap));
+            			} else {
+                        	nTask.setPath(shPathFinder.getPathToPos(ship, targetShip, gameMap));
+
             			}
                     	Move move = nTask.computeMove();
             			if(move != null) {
@@ -315,6 +326,8 @@ public class ModifiedBot {
 					Planet targetEPlanet = findBestPlanet(ship, entities_by_dist, true, myId, targetedFreePlanets, range);
             		if(targetEPlanet != null) {
                     	nTask = new Task(ship, gameMap, TaskType.Expand, targetEPlanet);
+                    	nTask.setPath(shPathFinder.getPathToPlanet(ship, targetEPlanet));
+
                     	Move move = nTask.computeMove();
             			if(move != null) {
             				moveList.add(move);
@@ -328,6 +341,8 @@ public class ModifiedBot {
 					Planet targetRPlanet = findBestPlanet(ship, entities_by_dist, false, myId, targetedFreePlanets, range);
             		if(targetRPlanet != null) {
                     	nTask = new Task(ship, gameMap, TaskType.Reinforce, targetRPlanet);
+                    	nTask.setPath(shPathFinder.getPathToPlanet(ship, targetRPlanet));
+
                     	Move move = nTask.computeMove();
             			if(move != null) {
             				moveList.add(move);
@@ -343,6 +358,15 @@ public class ModifiedBot {
 					Ship targetCShip = findBestEnemyShip(ship, entities_by_dist, gameMap, range);
                 	if(targetCShip != null) {
                     	nTask = new Task(ship, gameMap, TaskType.AttackAny, targetCShip);
+                    	if(expectedPositions.containsKey(targetCShip.getId())) {
+                    		Position estPos = expectedPositions.get(targetCShip.getId());
+                    		nTask.setEstimatedPos(estPos);
+                        	nTask.setPath(shPathFinder.getPathToPos(ship, estPos, gameMap));
+
+            			} else {
+                        	nTask.setPath(shPathFinder.getPathToPos(ship, targetCShip, gameMap));
+
+            			}
                     	Move move = nTask.computeMove();
             			if(move != null) {
             				moveList.add(move);

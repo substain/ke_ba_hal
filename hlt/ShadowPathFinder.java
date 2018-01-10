@@ -15,7 +15,6 @@ public class ShadowPathFinder {
 		shadowMap = new HashMap<>();
 		parsePlanets(gmap);
 		Log.log("parsing planets complete");
-
 	}
 	
 	public void parsePlanets(GameMap gmap) {
