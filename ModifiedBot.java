@@ -4,20 +4,37 @@ import hlt.Ship.DockingStatus;
 import hlt.Task.TaskStatus;
 import hlt.Task.TaskType;
 
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Map;
+import java.util.Scanner;
 import java.util.TreeMap;
 
+import genAlgo.HaliteGenAlgo;
+
+
+
 public class ModifiedBot {
+	public static final boolean useBotID = true;
 
 	private static double distanceUnit;
 	
-    public static void main(final String[] args) {
+    public static void main(final String[] args) throws IOException {
         final Networking networking = new Networking();
-        final GameMap gameMap = networking.initialize("ModdedBot");
+        boolean usingBotID = false;
+        String botname = "ModdedBot";
+        if(useBotID && args.length > 0) {
+        	botname = args[0];
+        	usingBotID = true;
+        }
+        final GameMap gameMap = networking.initialize(botname);
         
         
         int myId = gameMap.getMyPlayerId();
@@ -25,38 +42,103 @@ public class ModifiedBot {
         int gmHeight = gameMap.getHeight();
         
         
-        //################ THE FOLLOWING VARIABLES MAY BE CHANGED #########
-        
-        //starting ship distribution:
-        int[] shipDistribution = new int[TaskType.values().length];
-        for(int i = 0; i < shipDistribution.length; i++) {
-        	shipDistribution[i] = 0;
-        }
-        shipDistribution[Control.getTaskTypeIndex(TaskType.Attack)] = 1;
-        shipDistribution[Control.getTaskTypeIndex(TaskType.Reinforce)] = 2;
-        shipDistribution[Control.getTaskTypeIndex(TaskType.Expand)] = 3;
-        
 
-        // ship distribution in the end
-        int[] finalShipDistr = new int[TaskType.values().length];
-        for(int i = 0; i < finalShipDistr.length; i++) {
-        	finalShipDistr[i] = 0;
+        int[] shipDistribution = new int[Task.NUM_ACTIVE_TYPES];
+        int[] finalShipDistr = new int[Task.NUM_ACTIVE_TYPES];
+        double roundAttNormFactor = (Constants.MAX_NUM_ROUNDS/HaliteGenAlgo.NUM_ATT_SETTINGS_PER_GAME)/HaliteGenAlgo.ATT_MAX;
+        int roundsWithoutChange = 20;
+        int roundsUntilFinalDist = 20;
+        
+        if(usingBotID) {
+        	//if file not exist in bots, look in safeBots else dont load
+    		Path dir = Paths.get(".").toAbsolutePath().normalize();
+    		Path fPath = Paths.get(dir.toString(), HaliteGenAlgo.CFG_FOLDERNAME, HaliteGenAlgo.GA_CFG_FOLDERNAME, botname + ".txt");
+    		File file = new File(fPath.toString());
+    		boolean fileNotFound = false;
+    		if(!file.exists()) {
+    			Path fPath2 = Paths.get(dir.toString(), HaliteGenAlgo.CFG_FOLDERNAME, HaliteGenAlgo.SAFE_CFG_FOLDERNAME, botname + ".txt");
+        		file = new File(fPath2.toString());
+        		if(!file.exists()) {
+        			fileNotFound = true;
+        		}
+
+    		}
+    		if(!fileNotFound) {
+
+    	        Scanner scanner = null;
+
+    		    try {
+    				scanner = new Scanner(file);
+    		    } catch (FileNotFoundException e) {
+    		        e.printStackTrace();  
+    		    }
+    		    int numAts = 0;
+    		    if(scanner.hasNext()) {
+        		    numAts = scanner.nextInt();
+    		    }
+    		    if(numAts<HaliteGenAlgo.NUM_ATTS) {
+    		    	Log.log("ModdedBot:Read Error - att counts are not consistent in" + fPath.toString());	
+					throw new IOException();
+    		    }
+    		    for(int i = 0; i <Task.NUM_ACTIVE_TYPES; i++) {
+    		    	if(scanner.hasNext()) {
+    		    		shipDistribution[i] = Integer.valueOf(scanner.next());
+    		    	} else {
+    		    		Log.log("ModdedBot:Read Error - did not specify enough att values in " + fPath.toString());	
+    					throw new IOException();
+    		    	}
+    		    }
+    		    for(int i = 0; i <Task.NUM_ACTIVE_TYPES; i++) {
+    		    	if(scanner.hasNext()) {
+    		    		finalShipDistr[i] = Integer.valueOf(scanner.next());
+    		    	} else {
+    		    		Log.log("ModdedBot:Read Error - did not specify enough att values in " + fPath.toString());	
+    					throw new IOException();
+    		    	}
+    		    }
+    		    if(scanner.hasNext()) {
+    		    	roundsWithoutChange = (int) ( Integer.valueOf(scanner.next()) * roundAttNormFactor);
+    	    	} else {
+    	    		Log.log("ModdedBot:Read Error - did not specify enough att values in " + fPath.toString());	
+    				throw new IOException();
+    	    	}
+    		    if(scanner.hasNext()) {
+    		    	roundsUntilFinalDist = (int) (Integer.valueOf(scanner.next()) * roundAttNormFactor);
+    	    	} else {
+    	    		Log.log("ModdedBot:Read Error - did not specify enough att values in " + fPath.toString());	
+    				throw new IOException();
+    	    	}
+    		    
+            	Log.log("Attribute file found and loaded.");
+            	
+
+    		} else {
+
+    	        for(int i = 0; i < shipDistribution.length; i++) {
+    	        	shipDistribution[i] = 0;
+    	        }
+    	        shipDistribution[Control.getTaskTypeIndex(TaskType.AttackAny)] = 1;
+    	        shipDistribution[Control.getTaskTypeIndex(TaskType.Reinforce)] = 2;
+    	        shipDistribution[Control.getTaskTypeIndex(TaskType.Expand)] = 3;
+
+    	        // ship distribution in the end
+    	        for(int i = 0; i < finalShipDistr.length; i++) {
+    	        	finalShipDistr[i] = 0;
+    	        }
+    	        finalShipDistr[Control.getTaskTypeIndex(TaskType.AttackAny)] = 5;
+    	        finalShipDistr[Control.getTaskTypeIndex(TaskType.Reinforce)] = 2;
+    	        finalShipDistr[Control.getTaskTypeIndex(TaskType.Expand)] = 1;
+    		}
+
+
         }
-        finalShipDistr[Control.getTaskTypeIndex(TaskType.Attack)] = 5;
-        finalShipDistr[Control.getTaskTypeIndex(TaskType.Reinforce)] = 2;
-        finalShipDistr[Control.getTaskTypeIndex(TaskType.Expand)] = 1;
-        
-        int roundsWithoutChange = 50;
-        int roundsUntilFinalDist = 50;
-        
-        //#############################################################
-        
+
         final Control controller = new Control(myId, shipDistribution); 
         controller.changeRatioOverTime(finalShipDistr,roundsWithoutChange, roundsUntilFinalDist);
         
-
+        final Evaluator evaluator = new Evaluator(gameMap, botname);
                 
-        final double usedFudge = Constants.FORECAST_FUDGE_FACTOR;
+        //final double usedFudge = Constants.FORECAST_FUDGE_FACTOR;
         Map<Integer, Planet> lastKnownPlanets = gameMap.getAllPlanets();
         //Map<Integer, Ship> lastKnownShips = gameMap.getMyPlayer().getShips();
 
@@ -72,8 +154,13 @@ public class ModifiedBot {
         Log.log("distUnit = " + distanceUnit);
 
         //create a map of coordinates, where true means a planet (or its safety-zone) is on that coordinate
-        boolean[][] hitmap = createHitmap(gameMap, usedFudge); //TODO only keep this in PathFinder
-        final PathFinder pfinder = new PathFinder(hitmap);
+        //boolean[][] hitmap = createHitmap(gameMap, usedFudge); //TODO only keep this in PathFinder
+        //final PathFinder pfinder = new PathFinder(hitmap);
+        ShadowPathFinder shPathFinder = new ShadowPathFinder(gameMap);
+        
+        //DEBUG
+		Log.log(shPathFinder.allPlanetsToString());
+
 
         HashMap<Integer, Task> tasks = new HashMap<>();
         HashMap<Integer, Position> lastPositions = new HashMap<>();
@@ -90,18 +177,29 @@ public class ModifiedBot {
             networking.updateMap(gameMap);
             controller.setDynPossibleTasks(gameMap);
             //Status.update(gameMap);
+
+            boolean almostOver = evaluator.evaluateRound(gameMap); //computes current score and indicates if a match is almost over
+            if(almostOver) {
+            	evaluator.accumulateScore();
+            	Log.log(evaluator.scoresToString());
+            }
             
             HashMap<Integer, Task> newTasks = new HashMap<>();
-
+            
+            
         	//check if hitmap is up to date
             Map<Integer, Planet> currentPlanets = gameMap.getAllPlanets();
         	if(currentPlanets.size() < lastKnownPlanets.size()) {
         		int numDestroyedPlanets = lastKnownPlanets.size() - currentPlanets.size();
-        		hitmap = updateHitmap(hitmap, lastKnownPlanets, currentPlanets, numDestroyedPlanets, usedFudge);
-        		pfinder.updateMap(hitmap);
+        		shPathFinder = updateShadowPathFinder(shPathFinder, lastKnownPlanets, currentPlanets, numDestroyedPlanets);
+        		//hitmap = updateHitmap(hitmap, lastKnownPlanets, currentPlanets, numDestroyedPlanets, usedFudge);
+        		//pfinder.updateMap(hitmap);
+        		
         		lastKnownPlanets = currentPlanets;
         	}
-        	boolean[][] currentHitmap = hitmap; // this copy is updated with the ship positions computed this turn to avoid collisions
+        	//boolean[][] currentHitmap = hitmap; // this copy is updated with the ship positions computed this turn to avoid collisions
+        	
+        	
         	
         	//compute expected ship movements this turn, only using the last turns positions
         	HashMap<Integer, Position> expectedPositions = new HashMap<>();
@@ -129,6 +227,12 @@ public class ModifiedBot {
             				currentTask.setEstimatedPos(expectedPositions.get(currentTask.getTargetId()));
             			}
             			
+            			//TODO: use pathfinder here
+            			
+            			if(currentTask.needsPath()) {
+                			//shPathFinder.getPathToPos(ship, currentTask.getTarget(), gameMap);
+            			}
+            			
             			//TODO: setObstructedPositions here
             			Move move = currentTask.computeMove();
             			//getExpectedPos() and set this in an updated liveHitMap
@@ -140,7 +244,7 @@ public class ModifiedBot {
             					Position expectedPos = Navigation.getExpectedPos(ship, taskTarget, tm.getThrust());
             					int expectedX = (int) expectedPos.getXPos();
             					int expectedY = (int) expectedPos.getYPos();
-            					currentHitmap[expectedX][expectedY] = true;
+            					//currentHitmap[expectedX][expectedY] = true;
             				}
                         	
             				if(currentTask.getType() != TaskType.Dock) {
@@ -175,12 +279,27 @@ public class ModifiedBot {
             	
             	Task nTask;
             	TaskType newType = controller.getNextTypeAndUpdate(); // TODO : implement / use
-            	
+            	//TODO Distraction Coverage
             	switch(newType) {
-				case Attack:
+            	case Diversion:
+            		Ship tShip = getNearestEnemyShip(ship, entities_by_dist, gameMap);
+                	if(tShip != null) {
+                    	nTask = new Task(ship, gameMap, TaskType.Diversion, tShip);
+                    	if(expectedPositions.containsKey(tShip.getId())) {
+                    		nTask.setEstimatedPos(expectedPositions.get(tShip.getId()));
+            			}
+                    	Move move = nTask.computeMove();
+            			if(move != null) {
+            				moveList.add(move);
+            				Log.log("Ship: " + ship.getId() + " setting move (new, "+ nTask.getType().toString() +" ). \n");
+                        	newTasks.put(ship.getId(), nTask);
+            			}
+                	}
+					break;
+				case AttackAny:
 					Ship targetShip = getNearestEnemyShip(ship, entities_by_dist, gameMap);
                 	if(targetShip != null) {
-                    	nTask = new Task(ship, gameMap, TaskType.Attack, targetShip);
+                    	nTask = new Task(ship, gameMap, TaskType.AttackAny, targetShip);
                     	if(expectedPositions.containsKey(targetShip.getId())) {
                     		nTask.setEstimatedPos(expectedPositions.get(targetShip.getId()));
             			}
@@ -220,9 +339,17 @@ public class ModifiedBot {
 					break;
 				case Dock:
 					break;				
-				case Diversion:
 				case Conquer:
-				case Production:
+					Ship targetCShip = findBestEnemyShip(ship, entities_by_dist, gameMap, range);
+                	if(targetCShip != null) {
+                    	nTask = new Task(ship, gameMap, TaskType.AttackAny, targetCShip);
+                    	Move move = nTask.computeMove();
+            			if(move != null) {
+            				moveList.add(move);
+            				Log.log("Ship: " + ship.getId() + " setting move (new, "+ nTask.getType().toString() +" ). \n");
+                        	newTasks.put(ship.getId(), nTask);
+            			}
+                	}
 				case Defensive:
 				default:
 					break;
@@ -536,6 +663,28 @@ public class ModifiedBot {
 		return updatedHitmap;
 
     }
+
+    static ShadowPathFinder updateShadowPathFinder(ShadowPathFinder spf, Map<Integer,Planet> previousPlanets, Map<Integer, Planet> currentPlanets, int numDestroyedPlanets){    	
+    	int planetsToRemove = numDestroyedPlanets;
+		Log.log(" ##### updating shadowpathfinder ##### ");
+
+            for(Map.Entry<Integer, Planet> prEntry : previousPlanets.entrySet()) {
+    		if(!currentPlanets.containsKey(prEntry.getKey())) {
+    		
+    			planetsToRemove--;
+    			Planet destroyedPlanet = prEntry.getValue();
+
+    			spf.removePlanet(destroyedPlanet);
+    			
+    			if(planetsToRemove==0) {
+    				return spf;
+    			}
+    		}
+
+        }
+		return spf;
+
+    }
     
     static Task createTask(Ship ship, GameMap gameMap, Control gameStatus) {
 		return null;
@@ -548,38 +697,8 @@ public class ModifiedBot {
 		return null;
     	
     }
-    
-    /**
-     * takes a sorted list of planets and starts building LinkedSpace objects around them
-     */
-    static void parseLS(LinkedList<Planet> sortedPlanets) {
-    	for(Planet p : sortedPlanets) {
-    		
-    	}
-    }
-    
-    /**
-     * takes a planet and starts building LinkedSpace objects around them
-     */
-    static void parseLS(GameMap gameMap, Planet midPl) { //TODO
-    	Map<Integer, Planet> restPlanets = gameMap.getAllPlanets();
-    	LinkedSpace ls1 = new LinkedSpace(midPl);
-    	restPlanets.remove(midPl.getId());
-    	while(!restPlanets.isEmpty()) {
-    		//get mid planet...
-    	}
-    	int x_line = (int) midPl.getYPos(); // a line parallel to the x-axis at y
-    	int y_line = (int) midPl.getXPos(); // a line parallel to the y-axis at x
+ 
 
-    }
-    
-    static LinkedList<LinkedSpace> parseLSrec(Map<Integer, Planet> restPlanets, LinkedList<LinkedSpace> linkedSpaces) { //TODO
-    	if(restPlanets.isEmpty()) {
-    		return linkedSpaces;
-    	}
-    	//getMidPlanet
 
-    	return null;
-    }
     
 }

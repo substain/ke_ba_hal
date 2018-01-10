@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.Collections;
+import java.util.LinkedList;
 import java.util.Collection;
 
 public class GameMap {
@@ -130,6 +131,20 @@ public class GameMap {
         }
 
         return entityByDistance;
+    }
+    
+    public Planet getNearestPlanet(final Position pos) {
+        Planet closestPlanet = null;
+        double closestDist = Double.POSITIVE_INFINITY;
+        double currentDist;
+        for (final Planet planet : planets.values()) {
+        	currentDist = pos.getDistanceTo(planet);
+        	if(currentDist <= closestDist) {
+        		closestDist = currentDist;
+        		closestPlanet = planet;
+        	}
+        }
+        return closestPlanet;
     }
 
     public GameMap updateMap(final Metadata mapMetadata) {

@@ -112,7 +112,7 @@ public class GenAlgo {
 			}
 		}
 		
-		Individual child = new Individual(childAtts);
+		Individual child = new Individual(childAtts, ATT_MAX);
 		return child;
 		
 	}
@@ -166,7 +166,7 @@ public class GenAlgo {
     	ArrayList<Individual> population = new ArrayList<>();
     	for(int i = 0; i < MAX_POPULATION_SIZE; i++) {
         	int[] attrDistr = createRandomIntArray(NUM_ATTS);
-        	Individual newInd = new Individual(attrDistr);
+        	Individual newInd = new Individual(attrDistr, ATT_MAX);
         	population.add(newInd);
     	}
     	GenAlgo test = new GenAlgo(population);

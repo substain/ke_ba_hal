@@ -84,9 +84,9 @@ public class Position {
     
     
     public static Position getOppositePos(Position mid, Position refPos) {
-    	double newX = mid.getXPos() - refPos.getXPos();
-    	double newY = mid.getYPos() - refPos.getYPos();
-    	Position pos = new Position(newX, newY);
+    	double dx = mid.getXPos() - refPos.getXPos();
+    	double dy = mid.getYPos() - refPos.getYPos();
+    	Position pos = new Position(mid.getXPos() + dx, mid.getYPos() + dy);
     	return pos;
     }
 }

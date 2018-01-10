@@ -7,11 +7,13 @@ public class Individual {
 	int[] attributes;
 	static int count = 0;
 	int id = 0;
+	int attributeMaximum;
 	
-	public Individual(int[] atts) {
+	public Individual(int[] atts, int attMax) {
 		attributes = atts;
 		id = count;
 		count++;
+		attributeMaximum = attMax;
 	}
 	
 	public int[] getAttributes(){
@@ -23,8 +25,8 @@ public class Individual {
 	}
 	
 	public void mutate() {
-		int chosenAttribute = GenAlgo.randNum.nextInt(GenAlgo.NUM_ATTS);
-		int newValue = GenAlgo.randNum.nextInt(GenAlgo.ATT_MAX);
+		int chosenAttribute = HaliteGenAlgo.randNum.nextInt(attributes.length);
+		int newValue = HaliteGenAlgo.randNum.nextInt(attributeMaximum);
 		attributes[chosenAttribute] = newValue;
 	}
 	

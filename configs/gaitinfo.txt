@@ -1,0 +1,3 @@
+T1 -1 4 -1 4 1 8
+4 GABot_A0 GABot_B3 GABot_C2 GABot_D0
+2 MBotA.java MBotB.java

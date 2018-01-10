@@ -60,4 +60,6 @@ public class Constants {
     
     
     public static final int MAX_BREAK_DISTANCE = MAX_SPEED + 1;
+    
+    public static final int MAX_NUM_ROUNDS = 300;
 }

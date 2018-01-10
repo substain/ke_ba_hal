@@ -37,8 +37,8 @@ public class Control {
 		
 		taskRatio = convertToRatioNums(taskRatioNums);
 		
-        dynPossibleTasks = new boolean[TaskType.values().length];
-		dynNumShips = new int[TaskType.values().length]; //create an array of numbers to count the amount of each type, each round
+        dynPossibleTasks = new boolean[Task.NUM_ACTIVE_TYPES];
+		dynNumShips = new int[Task.NUM_ACTIVE_TYPES]; //create an array of numbers to count the amount of each type, each round
 		clearDynNums();
 
 	}
@@ -51,15 +51,15 @@ public class Control {
 		changesToNextRatio = false;
 
 
-		int[] standardRatio = new int[TaskType.values().length];
+		int[] standardRatio = new int[Task.NUM_ACTIVE_TYPES];
 		for(int i = 0; i < standardRatio.length; i++) {
 			standardRatio[i] = 1;
 		}
 		
 		taskRatio = convertToRatioNums(standardRatio);
 		
-        dynPossibleTasks = new boolean[TaskType.values().length];
-		dynNumShips = new int[TaskType.values().length]; //create an array of numbers to count the amount of each type, each round
+        dynPossibleTasks = new boolean[Task.NUM_ACTIVE_TYPES];
+		dynNumShips = new int[Task.NUM_ACTIVE_TYPES]; //create an array of numbers to count the amount of each type, each round
 		clearDynNums();
 
 	}
@@ -92,23 +92,19 @@ public class Control {
 
 	public static int getTaskTypeIndex(TaskType taskt) {
 		switch(taskt) {
-		case Attack:
+		case AttackAny:
 			return 0;
 		case Conquer:
 			return 1;
-		case Defensive:
-			return 2;
-		case Diversion:
-			return 3;
 		case Dock:
-			return 4;
+			return 2;
 		case Expand:
-			return 5;
-		case Production:
-			return 6;
+			return 3;
 		case Reinforce:
-			return 7;
-		default:
+			return 4;
+		case Diversion:
+			return 5;
+		default: // 
 			return -1;
 		}
 	}
@@ -116,23 +112,19 @@ public class Control {
 	public static TaskType getTaskTypeByIndex(int i) {
 		switch(i) {
 		case 0:
-			return TaskType.Attack;
+			return TaskType.AttackAny;
 		case 1:
 			return TaskType.Conquer;
 		case 2:
-			return TaskType.Defensive;
-		case 3:
-			return TaskType.Diversion;
-		case 4:
 			return TaskType.Dock;
-		case 5:
+		case 3:
 			return TaskType.Expand;
-		case 6:
-			return TaskType.Production;
-		case 7:
+		case 4:
 			return TaskType.Reinforce;
+		case 5: 
+			return TaskType.Diversion;
 		default:
-			return TaskType.Attack;
+			return TaskType.AttackAny;
 		}
 	}
 	/*
