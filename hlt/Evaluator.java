@@ -11,7 +11,7 @@ import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.Map;
 
-import genAlgo.HaliteGenAlgo;
+import genAlgo.GAFileHandler;
 
 public class Evaluator{
 
@@ -31,6 +31,7 @@ public class Evaluator{
 	int finalScore;
 	String botName;
 	Path filePath;
+	int iteration;
 	
 	LinkedList <Integer> roundScore;
 	
@@ -44,13 +45,18 @@ public class Evaluator{
 		numPlanets = initialMap.getAllPlanets().size();
 		botName = botID;
 		initConfigFile();
+		iteration = -1;
+	}
+	
+	public void setIteration(int currentIteration) {
+		iteration = currentIteration;
 	}
 	
 	/**
 	 * evaluates a score for the current Round 
 	 * @return true if the game is almost over
 	 */
-	public boolean evaluateRound(GameMap currentRoundMap) {
+	public void evaluateRound(GameMap currentRoundMap) {
 		rounds++;
 		numActivePlayers = 0;
 		int numShips = 0;
@@ -65,27 +71,27 @@ public class Evaluator{
 		}
 		
 		
-		boolean playerAlmostDead = false;
+		//boolean playerAlmostDead = false;
 		for(int i = 0; i < numPlayers; i++) {
 			if(playerShips[i] > 0) {
 				numActivePlayers++;
 			}
 			if(playerShips[i] <= 2) {
-				playerAlmostDead = true;
+				//playerAlmostDead = true;
 			}
 		}
 		
 		int[] ownedPlanets = new int[numPlayers];
         Arrays.fill(ownedPlanets, 0);
 		int numPlanets = 0;
-		int numUnownedPlanets = 0;
+		//int numUnownedPlanets = 0;
 		for(Map.Entry<Integer, Planet> plEntry : currentRoundMap.getAllPlanets().entrySet()) {
 			numPlanets++;
 			Planet pl = plEntry.getValue();
 			if(pl.isOwned()) {
 				ownedPlanets[pl.getOwner()]++;
 			} else {
-				numUnownedPlanets++;
+				//numUnownedPlanets++;
 			}
 		}
 		
@@ -96,7 +102,7 @@ public class Evaluator{
 		
 		Log.log("myShipPercentage:" + myShipPercentage + ", myPlanetPercentage=" + myPlanetPercentage + ", playerFraction = " + playerFraction);
 
-		
+		/*
 		if(myShipPercentage > playerFraction) {
 			if(myShipPercentage > playerFraction + (playerFraction*SHIP_BONUS_THRESH)) {
 				score += 1;
@@ -112,13 +118,10 @@ public class Evaluator{
 					score += 0.5;			
 				}
 		}
-		
-		Integer normScore = (int)Math.ceil(score);
-		
-		roundScore.add(normScore);
+*/
 		
 		if(WRITE_TO_FILE) {
-			addToFile(normScore);
+			addToFile(myShipPercentage+myPlanetPercentage);
 		}
 		
 		/*
@@ -137,10 +140,10 @@ public class Evaluator{
 			return true;
 		}
 		*/
-		return false; 
+		//return false; 
 	}
 	
-	public void accumulateScore() {
+	private void accumulateScore() {
 		int timeBonus = 0;
 		
 		for(Integer i : roundScore) {
@@ -183,29 +186,42 @@ public class Evaluator{
 	public void initConfigFile() {
 
 		Path dir = Paths.get(".").toAbsolutePath().normalize();
-
-		Path folderPath = Paths.get(dir.toString(), HaliteGenAlgo.CFG_FOLDERNAME, HaliteGenAlgo.BOT_SCR_FOLDERNAME, botName);
+		Path botFolder = Paths.get(dir.toString(), GAFileHandler.CFG_FOLDERNAME, GAFileHandler.BOT_SCR_FOLDERNAME, botName);
+		//Path iterationFolder = Paths.get(botFolder.toString(), String.valueOf(iteration));
 		LinkedList<String> noText = new LinkedList<>();
-		
+		//Log.log("initconfig file : folderPath = " + iterationFolder.toString());
 		int scoreFileNumber = 0;
 
-		File folder = new File(folderPath.toString());
-		if(!folder.exists()) {
+		File bfolder = new File(botFolder.toString());
+		if(!bfolder.exists()) {
 			try{
-				folder.mkdir();
+				bfolder.mkdir();
 	    	} 
 	    	catch(SecurityException se){
-	        //TODO
+	        //TODO				
+
 	    	}   
 	    }
-		File[] fileList = folder.listFiles();
+		/*File ifolder = new File(iterationFolder.toString());
+		if(!ifolder.exists()) {
+			try{
+				ifolder.mkdir();
+	    	} 
+	    	catch(SecurityException se){
+	        //TODO				
+
+	    	}   
+	    }*/
+		Log.log("folder written.");
+
+		File[] fileList = bfolder.listFiles();
 
 		for (File scoreFile : fileList) {
 			if (scoreFile.isFile()) {
 				scoreFileNumber++;
 			}
 		}
-		filePath = Paths.get(folderPath.toString(), scoreFileNumber + ".txt");
+		filePath = Paths.get(botFolder.toString(), scoreFileNumber + ".txt");
 
 		try {
 		    Files.write(filePath, noText, Charset.forName("UTF-8"));
@@ -215,7 +231,7 @@ public class Evaluator{
 	
 	}
 	
-	public void addToFile(Integer addedNum){
+	public void addToFile(Double addedNum){
 		String addedText = " " + addedNum.toString();
 		try {
 		    Files.write(filePath, addedText.getBytes(), StandardOpenOption.APPEND);

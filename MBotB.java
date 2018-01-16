@@ -74,9 +74,9 @@ public class MBotB {
 				  Ship targetShip = (Ship) targetEntity.getValue();
 				  if(targetShip.getOwner() != gameMap.getMyPlayerId()) { //none of my own ships
 					  if(thisShip.getDistanceTo(targetShip) <= Constants.WEAPON_RADIUS + 1) {
-						  return Navigation.navigateShipToClosestPoint(gameMap, thisShip, targetShip, Constants.MAX_SPEED/2);
+						  return Navigation.navigateShipToClosestPoint(gameMap, thisShip, targetShip, Constants.MAX_SPEED/2, new ArrayList<>());
 					  } else {
-						  return Navigation.navigateShipToClosestPoint(gameMap, thisShip, targetShip, (int)(Constants.MAX_SPEED * 0.7));
+						  return Navigation.navigateShipToClosestPoint(gameMap, thisShip, targetShip, (int)(Constants.MAX_SPEED * 0.7), new ArrayList<>());
 					  }
 				  }
 			  }
@@ -101,7 +101,7 @@ public class MBotB {
 		if (thisShip.canDock(targetPlanet)) {
 			return new DockMove(thisShip, targetPlanet);
 		} else {
-			return Navigation.navigateShipToClosestPoint(gameMap, thisShip, targetPlanet, Constants.MAX_SPEED);
+			return Navigation.navigateShipToClosestPoint(gameMap, thisShip, targetPlanet, Constants.MAX_SPEED, new ArrayList<>());
 		}
 	}
 	

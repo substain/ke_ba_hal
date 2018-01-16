@@ -98,6 +98,20 @@ public class GameMap {
 
         return entitiesFound;
     }
+    
+    public ArrayList<Entity> objectsBetween2(Position start, Position target, ArrayList<Entity> obstructedPos) {
+        final ArrayList<Entity> entitiesFound = new ArrayList<>();
+
+        addEntitiesBetween(entitiesFound, start, target, planets.values());
+        if(!obstructedPos.isEmpty()) {
+            addEntitiesBetween(entitiesFound, start, target, obstructedPos);
+        }
+        addEntitiesBetween(entitiesFound, start, target, allShips);
+
+        return entitiesFound;
+    }
+    
+  
 
     private static void addEntitiesBetween(final List<Entity> entitiesFound,
                                            final Position start, final Position target,

@@ -36,7 +36,7 @@ public class InitialBot {
                         break;
                     }
 
-                    final ThrustMove newThrustMove = Navigation.navigateShipToClosestPoint(gameMap, ship, planet, Constants.MAX_SPEED);
+                    final ThrustMove newThrustMove = Navigation.navigateShipToClosestPoint(gameMap, ship, planet, Constants.MAX_SPEED, new ArrayList<>());
                     if (newThrustMove != null) {
                         moveList.add(newThrustMove);
                     }

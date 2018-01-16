@@ -18,4 +18,14 @@ public class ThrustMove extends Move {
     public int getThrust() {
         return thrust;
     }
+    
+    
+    public Position getExpectedPosition(Position origin) {
+    	final double angularStepRad = Math.PI/180.0;
+        
+    	final double moveX = Math.cos(angleDeg + angularStepRad) * thrust;
+        final double moveY = Math.sin(angleDeg + angularStepRad) * thrust;
+        
+    	return new Position(origin.getXPos() + moveX, origin.getYPos() + moveY);
+    }
 }

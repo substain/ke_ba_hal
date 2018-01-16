@@ -1,13 +1,16 @@
 package hlt;
 
+import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.Map;
+import java.util.TreeMap;
 
 import hlt.Ship.DockingStatus;
+import hlt.Task.TaskType;
 
 public class Task {
 	
-	public static final int NUM_ACTIVE_TYPES = 6;
+	public static final int NUM_ACTIVE_TYPES = 5;
 	public enum TaskStatus { Valid, WillDock, Invalid }
     public enum TaskType { AttackAny, Defensive, Conquer, Diversion, Expand, Reinforce, Dock;
     	
@@ -18,7 +21,7 @@ public class Task {
     	      case AttackAny: return "[attack]";
     	      case Defensive: return "[defensive]"; //unused
     	      case Conquer: return "[conquer]";
-    	      case Diversion: return "[diversion]"; //unused
+    	      case Diversion: return "[diversion]";
     	      case Expand: return "[expand]";
     	      case Reinforce: return "[reinforce]";
     	      case Dock: return "[dock]";
@@ -26,7 +29,7 @@ public class Task {
     	    }
     	  }
     	  
-    	}
+    }
     /*
      * The 2 basic types are Attack and Production, the other types may be more advanced tactics.
      * 
@@ -39,22 +42,27 @@ public class Task {
      * Reinforce: Dock to an owned planet
      */
 
-    Ship thisShip;
-	Entity target;
-	Position estimatedPos;
-	TaskType type;
-	GameMap gameMap;
-	LinkedList<Position> path;
-	boolean needsPath;
-	final double angularStepRad = Math.PI/180.0;
+    private Ship thisShip;
+    private Entity target;
+	private Position estimatedPos;
+	private Position fleePos;
+	private TaskType type;
+	private GameMap gameMap;
+	private LinkedList<Position> path;
+	private LinkedList<Position> fleePath;
+	private boolean needsPath;
+	private boolean needsFleePath;
+
+	private ArrayList<Entity> obstructedPositions;
 
 	public Task(Ship ship, GameMap gmap, TaskType ttype, Entity ttarget) {
+		obstructedPositions = new ArrayList<Entity>();
 		thisShip = ship;
 		target = ttarget;
 		type = ttype;
 		gameMap = gmap;
 		needsPath = true;
-
+		needsFleePath = true;
 	}
 	
 	public boolean needsPath() {
@@ -64,7 +72,9 @@ public class Task {
 	public void setEstimatedPos(Position estimatedPosition) {
 		estimatedPos = estimatedPosition;
 	}
-	
+	public void setFleePos(Position fleePosition) {
+		fleePos = fleePosition;
+	}
 	
 	/*
 	 * computes the current move according to the task and resets estimatedPos to null
@@ -73,17 +83,19 @@ public class Task {
 		int speed = Constants.MAX_SPEED;
 
 		Move move = null;
+
 		switch(type) {
 		case Diversion: //TODO: dont crash into walls/planets
+			if(estimatedPos != null) {
+				obstructedPositions.add(new Entity(-1, -1, estimatedPos.getXPos(), estimatedPos.getYPos(), 10, Constants.SHIP_RADIUS));
+			}
 			Ship tShip = (Ship) target;
-			double safetyZone = Constants.WEAPON_RADIUS * 3;
-			double midRangeZone = Constants.WEAPON_RADIUS * 5;
+			double safetyZone = Constants.WEAPON_RADIUS * 1.8;
+			double midRangeZone = Constants.WEAPON_RADIUS * 2.5;
 			double distToShip = thisShip.getDistanceTo(target);
-			boolean noEstimation = false;
 			Position estPos;
-			if(estimatedPos == null) {
+			if(estimatedPos != null) {
 				estPos = estimatedPos;
-				noEstimation = true;;
 			} else {
 				estPos = tShip;
 			}
@@ -91,25 +103,23 @@ public class Task {
 				if(distToShip > midRangeZone) {
 					speed -= 2;
 				}
-				move = Navigation.navigateShipToClosestPoint(gameMap, thisShip, tShip, speed);
-
-			} else {
-				Position targetPos;
-				if(noEstimation) {
-					targetPos = Position.getOppositePos(thisShip, tShip);
+				if(!needsPath) {
+					Log.log("Diversion: hasPath, towardsTarget");
+					move = Navigation.navigateShipTowardsPathTarget(gameMap, thisShip, tShip, speed, path.getFirst(),obstructedPositions);
 				} else {
-					/* TODO:  angle higher than angleToMe: turn right, else turn left
-					double angle = tShip.orientTowardsInRad(estimatedPos);
-					double angleToMe = tShip.orientTowardsInRad(thisShip);
-					if(angle > angleToMe && angle - angleToMe < 180 && angle - angleToMe > 0) {
-						this.
-					}*/
-					targetPos = Position.getOppositePos(thisShip, tShip);
+					Log.log("Diversion: noPath, towardsTarget");
 
-					
+					move = Navigation.navigateShipToClosestPoint(gameMap, thisShip, tShip, speed, obstructedPositions);
 				}
-				move = Navigation.navigateShipToPoint(gameMap, thisShip, targetPos, speed);
+			} else {
+				if(!needsFleePath) {
+					Log.log("Diversion: hasFleePath, away");
 
+					move = Navigation.navigateShipTowardsPathTarget(gameMap, thisShip, fleePos, speed, fleePath.getFirst(),obstructedPositions);
+				} else {
+					Log.log("Diversion: noFleePath, away");
+					move = Navigation.navigateShipToPoint(gameMap, thisShip, fleePos, speed, obstructedPositions);
+				}
 			}
 			//TODO
 			break;
@@ -119,49 +129,57 @@ public class Task {
 		case Conquer:
 			Ship ctargetShip = (Ship) target;
 
-			if(thisShip.getDistanceTo(ctargetShip) <= Constants.WEAPON_RADIUS + 3) {
+			if(thisShip.getDistanceTo(ctargetShip) <= Constants.WEAPON_RADIUS + 2) {
 				speed -= 2;
 			}
 			if(!needsPath) {
-				move = Navigation.navigateShipTowardsPathTarget(gameMap, thisShip, ctargetShip, speed, path.getFirst(), angularStepRad);
+				move = Navigation.navigateShipTowardsPathTarget(gameMap, thisShip, ctargetShip, speed, path.getFirst(),obstructedPositions);
 			} else {
-				move = Navigation.navigateShipToClosestPoint(gameMap, thisShip, ctargetShip, speed);
+				move = Navigation.navigateShipToClosestPoint(gameMap, thisShip, ctargetShip, speed, obstructedPositions);
 			}
+			break;
+
 		case AttackAny:
 			Ship targetShip = (Ship) target;
-			if(thisShip.getDistanceTo(targetShip) <= Constants.WEAPON_RADIUS + 3) {
-				speed -= 2;
+			double distToTarget = thisShip.getDistanceTo(targetShip);
+			if(estimatedPos != null) {
+				obstructedPositions.add(new Entity(-1, -1, estimatedPos.getXPos(), estimatedPos.getYPos(), 10, Constants.SHIP_RADIUS));
 			}
-			if(estimatedPos == null) { //no position given
+			if(distToTarget <= Constants.WEAPON_RADIUS + 2) {
+				speed -= 3;
+			}
+			if(estimatedPos == null || distToTarget > 20) { //no position given
 				//Log.log("computeMove: navigation to " + targetShip.getXPos() + "|" + targetShip.getYPos() + " with speed " + speed + ", expected pos = " + Navigation.getExpectedPos(thisShip, targetShip, speed));
 				if(!needsPath) {
-					move = Navigation.navigateShipTowardsPathTarget(gameMap, thisShip, targetShip, speed, path.getFirst(), angularStepRad);
+					move = Navigation.navigateShipTowardsPathTarget(gameMap, thisShip, targetShip, speed, path.getFirst(), obstructedPositions);
 				} else {
-					move = Navigation.navigateShipToClosestPoint(gameMap, thisShip, targetShip, speed);
+					move = Navigation.navigateShipToClosestPoint(gameMap, thisShip, targetShip, speed, obstructedPositions);
 				}
 			} else { //move to the estimated position
-				if(thisShip.getDistanceTo(targetShip) <= Constants.WEAPON_RADIUS + 5) {
-					speed -= 1;
+				if(distToTarget <= Constants.WEAPON_RADIUS + 3) {
+					speed -= 2;
 				}
 				//Log.log("computeMove: navigation to " + estimatedPos.getXPos() + "|" + estimatedPos.getYPos() + " with speed " + speed + ", expected pos = " + Navigation.getExpectedPos(thisShip, targetShip, speed));
-				move = Navigation.navigateShipToPoint(gameMap, thisShip, estimatedPos, speed);
+				obstructedPositions.add(new Entity(-1, -1, estimatedPos.getXPos(), estimatedPos.getYPos(), 10, Constants.FORECAST_FUDGE_FACTOR));
+				move = Navigation.navigateShipToPoint(gameMap, thisShip, estimatedPos, speed, obstructedPositions);
 			}
 			break;
 		case Expand:
 		case Reinforce:
+			
 			Planet targetPlanet = (Planet) target;
 			//Log.log("Task.Move:Production, distance to planet: " + thisShip.getDistanceTo(targetPlanet));
 			if (thisShip.canDock(targetPlanet)) {
 				move = new DockMove(thisShip, targetPlanet);
 			} else {;
 				if(thisShip.getDistanceTo(targetPlanet) <= Constants.MAX_BREAK_DISTANCE) {
-					speed = speed-4;
+					speed = speed-1;
 				}
 				//Log.log("computeMove: navigation to " + targetPlanet.getXPos() + "|" + targetPlanet.getYPos() + " with speed " + speed + ", expected pos = " + Navigation.getExpectedPos(thisShip, targetPlanet, speed));
 				if(!needsPath) {
-					move = Navigation.navigateShipTowardsPathTarget(gameMap, thisShip, targetPlanet, speed, path.getFirst(), angularStepRad);
+					move = Navigation.navigateShipTowardsPathTarget(gameMap, thisShip, targetPlanet, speed, path.getFirst(), obstructedPositions);
 				} else {
-					move = Navigation.navigateShipToClosestPoint(gameMap, thisShip, targetPlanet, speed);
+					move = Navigation.navigateShipToClosestPoint(gameMap, thisShip, targetPlanet, speed, obstructedPositions);
 				}
 			}
 			break;
@@ -170,8 +188,8 @@ public class Task {
 			if (thisShip.canDock(tPlanet)) {
 				move = new DockMove(thisShip, tPlanet);
 			} else {
-				speed = speed -3;
-				move = Navigation.navigateShipToClosestPoint(gameMap, thisShip, tPlanet, speed);
+				speed = speed -1;
+				move = Navigation.navigateShipToClosestPoint(gameMap, thisShip, tPlanet, speed, obstructedPositions);
 			}
 			break;
 		default:
@@ -217,6 +235,12 @@ public class Task {
 	public void setPath(LinkedList<Position> newPath) {
 		path = newPath;
 		needsPath = false;
+	}
+	
+	
+	public void setFleePath(LinkedList<Position> fPath) {
+		fleePath = fPath;
+		needsFleePath = false;
 	}
 	
 	public void updateTarget(Ship t) { //for Diversion, should always be the next non-docking ship
@@ -302,8 +326,8 @@ public class Task {
 		return null;
 	}
 	
-	public void setObstructedPositions() {
-		
+	public void setObstructedPositions(ArrayList<Entity> myExpectedPositions) {
+		obstructedPositions = myExpectedPositions;
 	}
 	/*
 	public boolean isEqualTo(Task compTask) {
@@ -320,5 +344,45 @@ public class Task {
 	}
 	*/
 
+	public boolean isDiversion() {
+		if(type == TaskType.Diversion) {
+			return true;
+		}
+		return false;
+	}
+
+
+	public static int getTaskTypeIndex(TaskType taskt) {
+		switch(taskt) {
+		case AttackAny:
+			return 0;
+		case Conquer:
+			return 1;
+		case Expand:
+			return 2;
+		case Reinforce:
+			return 3;
+		case Diversion:
+			return 4;
+		default: // 
+			return -1;
+		}
+	}
 	
+	public static TaskType getTaskTypeByIndex(int i) {
+		switch(i) {
+		case 0:
+			return TaskType.AttackAny;
+		case 1:
+			return TaskType.Conquer;
+		case 2:
+			return TaskType.Expand;
+		case 3:
+			return TaskType.Reinforce;
+		case 4: 
+			return TaskType.Diversion;
+		default:
+			return TaskType.AttackAny;
+		}
+	}
 }

@@ -35,10 +35,10 @@ public class ShadowPathFinder {
 			}
 			
 			shadowMap.put(sourcePlanet.getId(), stnRoot);
-			
 		}
 	}
 
+	
 	public void removePlanet(Planet pl) {
 		Log.log("debug:SPF: calling removePlanet");
 		shadowMap.keySet().removeAll(Collections.singleton(pl.getId()));
@@ -48,17 +48,27 @@ public class ShadowPathFinder {
 	}
 	
 	public LinkedList<Position> getPathToPlanet(Position fromPos, Planet toPlanet) {
-		Log.log("debug:SPF: calling getPathToPlanet");
 
 		ShadowTreeNode stnRoot = shadowMap.get(toPlanet.getId());
-		return stnRoot.getPathFromPosition(fromPos);
+		LinkedList<Position> ret = stnRoot.getPathFromPosition(fromPos);
+		if(ret == null) {
+			ret = new LinkedList<>();
+		}
+
+		return ret;
 	}
 	
 
 	public LinkedList<Position> getPathToPos(Position fromPos, Position toPos, GameMap gmap) {
-		Log.log("debug:SPF: calling getPathToPos");
+		
+		LinkedList<Position> res = getPathToPlanet(fromPos, gmap.getNearestPlanet(toPos));
 
-		return getPathToPlanet(fromPos, gmap.getNearestPlanet(toPos));
+		if(res == null) {
+			res = new LinkedList<>();
+		}
+
+		return res;
+		
 	}
 	
 	public String planetSTNtoString(Planet planet) {

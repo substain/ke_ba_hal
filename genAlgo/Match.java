@@ -1,6 +1,13 @@
 package genAlgo;
 
+import java.util.ArrayList;
+
 public class Match {
+	
+	public static final int TYPE_GA = 0;
+	public static final int TYPE_SAFE = 1;
+	public static final int TYPE_EXT = 2;
+
 	
 	private int firstBotID;
 	
@@ -55,8 +62,8 @@ public class Match {
 		}
 	}
 	
-	public int getType(int player) {
-		switch(player) {
+	public int getType(int pl) {
+		switch(pl) {
 		case 3:
 			return forthBotType;
 		case 2:
@@ -66,6 +73,38 @@ public class Match {
 		case 0:
 		default:
 			return 0;
+		}
+	}
+	
+	public static String getString(Match m) {
+		String ret;
+		if(m.isFourPlayer()) {
+			ret = "Match(4):"+m.getID(0);
+			for(int i = 1; i < 4; i++) {
+				ret += "vs" + +m.getID(i) + "("+ getTypeString(m.getType(i)) +")";
+			}
+		} else {
+			ret = "Match(2):"+m.getID(0);
+			ret += "vs" + +m.getID(1) + "("+ getTypeString(m.getType(1))+")";
+		}
+		return ret;
+	}
+	
+	public static String getTypeString(int type) {
+		switch(type) {
+		case TYPE_EXT:
+			return "extern";
+		case TYPE_SAFE:
+			return "safe";
+		case TYPE_GA:
+		default:
+			return "ga";
+		}
+	}
+	
+	public static void printMatches(ArrayList<Match> matches) {
+		for(Match m : matches) {
+			System.out.println(getString(m));
 		}
 	}
 

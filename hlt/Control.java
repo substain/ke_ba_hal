@@ -5,29 +5,55 @@ import java.util.Map;
 import hlt.Task.TaskType;
 
 
+
+
+
 //computes a "global" priority for ships
 public class Control {
+	public static final int NUM_UNSPEC_ATTS = 3;
+	public static final int NUM_ATTS = Task.NUM_ACTIVE_TYPES + NUM_UNSPEC_ATTS;
+	public static final int NUM_MAX_CHANGE_TURNS = 30;
+	private static final double MAX_ADD_RATIO = 0.4;
+
+	public enum TaskTypeRatio { AttackVSBuild, ATAnyVSPlanned, ATPConquerVSDiv, BUExpandVsReinforce, OffensiveVSDefensive, LocalVSGlobal;
+		  @Override
+		  public String toString() {
+		    switch(this) {
+		      case AttackVSBuild: return "[attack vs build]";
+		      case ATAnyVSPlanned: return "[attack: any vs planned]";
+		      case ATPConquerVSDiv: return "[attack planned: conquer vs div]";
+		      case BUExpandVsReinforce: return "[build: expand vs reinforce]"; 
+		      case OffensiveVSDefensive: return "[offensive vs defensive ]"; 
+		      case LocalVSGlobal: return "[local vs global decisionmaking]"; 
+		      default: throw new IllegalArgumentException();
+		    }
+		 
+		}
+	}
+	
 	int players;
 	int myId;
 	int numShips;
 	int numPlanets;
 	int currentRound;
 
-	double[] taskRatio;
+	double[] distr;
 	
-	double[] nextTaskRatio;
+	double[] nextDistr;
 	int waitUntilChange;
 	int remainingChangeRounds;
 	boolean changesToNextRatio;
 	double[] changeAmount;
+	int waitTime;
 	
 	double globalDifThreshold;
 	
 	int nDynShips;
 	int[] dynNumShips;
 	boolean dynPossibleTasks[];
+	private double addRatio;
 
-	public Control(int myPlayerId, int[] taskRatioNums) {
+	public Control(int myPlayerId, double[] shipDistribution) {
 		myId = myPlayerId;
 		globalDifThreshold = 0.1;
 		currentRound = 0;
@@ -35,7 +61,8 @@ public class Control {
 		changesToNextRatio = false;
 		
 		
-		taskRatio = convertToRatioNums(taskRatioNums);
+		//attributes = convertToRatioNums(shipDistribution);
+		distr = shipDistribution;
 		
         dynPossibleTasks = new boolean[Task.NUM_ACTIVE_TYPES];
 		dynNumShips = new int[Task.NUM_ACTIVE_TYPES]; //create an array of numbers to count the amount of each type, each round
@@ -56,7 +83,7 @@ public class Control {
 			standardRatio[i] = 1;
 		}
 		
-		taskRatio = convertToRatioNums(standardRatio);
+		distr = convertToRatioNums(standardRatio);
 		
         dynPossibleTasks = new boolean[Task.NUM_ACTIVE_TYPES];
 		dynNumShips = new int[Task.NUM_ACTIVE_TYPES]; //create an array of numbers to count the amount of each type, each round
@@ -64,8 +91,15 @@ public class Control {
 
 	}
 	
+	public Control(int myPlayerId, double[] shipDistribution, double taskChangeDurance, double addFactor) {
+		this(myPlayerId, shipDistribution);
+		waitTime = (int) (taskChangeDurance * NUM_MAX_CHANGE_TURNS);
+		addRatio = addFactor * MAX_ADD_RATIO;
+	}
+
+	
 	/**
-	 * this influences, whether a ship will use a global priority or local priority.
+	 * this may influence, whether a ship will use a global priority or local priority.
 	 * initially, it is set to 0.1
 	 */
 	public void setGlobalDifThresh(double newThreshold) {
@@ -90,43 +124,6 @@ public class Control {
 	}
 	
 
-	public static int getTaskTypeIndex(TaskType taskt) {
-		switch(taskt) {
-		case AttackAny:
-			return 0;
-		case Conquer:
-			return 1;
-		case Dock:
-			return 2;
-		case Expand:
-			return 3;
-		case Reinforce:
-			return 4;
-		case Diversion:
-			return 5;
-		default: // 
-			return -1;
-		}
-	}
-	
-	public static TaskType getTaskTypeByIndex(int i) {
-		switch(i) {
-		case 0:
-			return TaskType.AttackAny;
-		case 1:
-			return TaskType.Conquer;
-		case 2:
-			return TaskType.Dock;
-		case 3:
-			return TaskType.Expand;
-		case 4:
-			return TaskType.Reinforce;
-		case 5: 
-			return TaskType.Diversion;
-		default:
-			return TaskType.AttackAny;
-		}
-	}
 	/*
 	/**
 	 * changes the ratio number of a specific Task,
@@ -147,9 +144,9 @@ public class Control {
 	 * if a task exceeds its ratio by more than globalDifThreshold, this returns false
 	 */
 	public boolean isWithinGlobalDifThresh() {
-		for(int i = 0; i < taskRatio.length; i++) {
+		for(int i = 0; i < distr.length; i++) {
 			double dynRatio =  (double)dynNumShips[i] / (double)nDynShips;
-			double currentDif = taskRatio[i] - dynRatio;
+			double currentDif = distr[i] - dynRatio;
 			if(currentDif > globalDifThreshold) {
 				return false;
 			}
@@ -158,7 +155,7 @@ public class Control {
 	}
 	
 	public void increaseShipNum(TaskType type) {
-		dynNumShips[getTaskTypeIndex(type)]++;
+		dynNumShips[Task.getTaskTypeIndex(type)]++;
 		nDynShips++;
 	}
 	
@@ -179,19 +176,19 @@ public class Control {
 	}
 	
 	/**
-	 * determines which Tasks may be done, TODO: currently only checks planets
+	 * determines which Tasks may be done, TODO:? currently only checks planets
 	 */
     public void setDynPossibleTasks(GameMap map) {
-		dynPossibleTasks[getTaskTypeIndex(TaskType.Expand)] = false;
-		dynPossibleTasks[getTaskTypeIndex(TaskType.Reinforce)] = false;
+		dynPossibleTasks[Task.getTaskTypeIndex(TaskType.Expand)] = false;
+		dynPossibleTasks[Task.getTaskTypeIndex(TaskType.Reinforce)] = false;
 	
     	
     	for(Map.Entry<Integer, Planet> entry : map.getAllPlanets().entrySet()) {
     		Planet p = entry.getValue();
     		if(p.getOwner() == myId && !p.isFull()) {
-    			dynPossibleTasks[getTaskTypeIndex(TaskType.Reinforce)] = true;
+    			dynPossibleTasks[Task.getTaskTypeIndex(TaskType.Reinforce)] = true;
     		} else if(!p.isOwned()) {
-    			dynPossibleTasks[getTaskTypeIndex(TaskType.Expand)] = true;
+    			dynPossibleTasks[Task.getTaskTypeIndex(TaskType.Expand)] = true;
     		}
     	}	
 
@@ -202,23 +199,23 @@ public class Control {
 	public TaskType getNextTypeAndUpdate() {
 		TaskType addedType = null;
 		
-		//String debug = "";
+		String debug = "";
 
 		if(nDynShips == 0) { //no entry yet
 			double biggestRatio = 0;
 			int indexOfBiggest = 0;
-			for(int i = 0; i<taskRatio.length;i++) {
+			for(int i = 0; i<Task.NUM_ACTIVE_TYPES;i++) {
 				if(!dynPossibleTasks[i]) {
 					continue;
 				}
-				if(taskRatio[i] > biggestRatio) {
-					biggestRatio = taskRatio[i];
+				if(distr[i] > biggestRatio) {
+					biggestRatio = distr[i];
 					indexOfBiggest = i;
 				}
 			}
-			addedType = getTaskTypeByIndex(indexOfBiggest);
-			//debug += "Control:returned type (first): " + addedType.toString();
-			//Log.log(debug);
+			addedType = Task.getTaskTypeByIndex(indexOfBiggest);
+			debug += "Control:returned type (first): " + addedType.toString();
+			Log.log(debug);
 
 			increaseShipNum(addedType);
 			return addedType;
@@ -229,19 +226,19 @@ public class Control {
 		//find maximum difference to the specified ship ratio fulfilling one type of task
 		double maxPosDif = 0;
 		int maxDifIndex = 0;
-		for(int i = 0; i < taskRatio.length; i++) {
+		for(int i = 0; i < distr.length; i++) {
 			if(!dynPossibleTasks[i]) {
 				continue;
 			}
 			double dynRatio =  (double)dynNumShips[i] / (double)nDynShips;
-			double currentDif = taskRatio[i] - dynRatio;
-			//debug += getTaskTypeByIndex(i).toString() + ":" +  dynNumShips[i] + ", -> " + taskRatio[i] + " - " + dynRatio + "|| \n";
+			double currentDif = distr[i] - dynRatio;
+			//debug += getTaskTypeByIndex(i).toString() + ":" +  dynNumShips[i] + ", -> " + attributes[i] + " - " + dynRatio + "|| \n";
 			if(currentDif > maxPosDif) {
 				maxPosDif = currentDif;
 				maxDifIndex = i;
 			}
 		}
-		addedType = getTaskTypeByIndex(maxDifIndex);
+		addedType = Task.getTaskTypeByIndex(maxDifIndex);
 		//debug += "), Task " + (nDynShips+1) + ", maxPosDif = " + maxPosDif + ", dynNumShips[max] = " + dynNumShips[maxDifIndex];
 		
 		//debug += "Control: returned type: " + addedType.toString() + "\n";
@@ -251,13 +248,13 @@ public class Control {
 	}
 
 	
-	public void changeRatioOverTime(int[] finalRatioNums, int waitTime, int numberRoundsToChange) {
+	public void changeRatioOverTime(double[] newDistribution, int waitTime, int numberRoundsToChange) {
 		waitUntilChange = waitTime;
 		remainingChangeRounds = numberRoundsToChange;
-		nextTaskRatio = convertToRatioNums(finalRatioNums);
-		changeAmount = new double[taskRatio.length];
+		nextDistr = newDistribution;
+		changeAmount = new double[distr.length];
 		for(int i = 0; i < changeAmount.length; i++) {
-			changeAmount[i] = (nextTaskRatio[i] - taskRatio[i]) / numberRoundsToChange;
+			changeAmount[i] = (nextDistr[i] - distr[i]) / numberRoundsToChange;
 		}
 	}
 	
@@ -271,21 +268,49 @@ public class Control {
 		}
 		remainingChangeRounds--;
 		if(remainingChangeRounds == 0) {
-			taskRatio = nextTaskRatio;
+			distr = nextDistr;
 			changesToNextRatio = false;
 		} else {
-			for(int i = 0; i<taskRatio.length;i++) {
-				taskRatio[i] += changeAmount[i];
+			for(int i = 0; i<distr.length;i++) {
+				distr[i] += changeAmount[i];
 			}
 		}
 
 	}
 	
-	/*
-	public void update(GameMap map) {
-		//TODO
+	
+	public void changeRatioField(TaskType field, boolean add) {
+		double[] newAtts;
+		if(remainingChangeRounds > 0) {
+			newAtts = nextDistr;
+		} else {
+			newAtts = distr;
+		}
+		
+		if(add) {
+			newAtts[Task.getTaskTypeIndex(field)] += addRatio;
+		} else {
+			newAtts[Task.getTaskTypeIndex(field)] -= addRatio;
+		}
+		
+		changeRatioOverTime(normalize(newAtts),0, waitTime);
 	}
-	*/
+	
+	
+
+	public static double[] normalize(double[] attributes) {
+		double sum = 0;
+		for(int i = 0; i < attributes.length; i++) {
+			sum += attributes[i];
+		}
+		if(sum == 1) {
+			return attributes;
+		}
+		for(int i = 0; i < attributes.length; i++) {
+			attributes[i] = attributes[i] / sum;
+		}
+		return attributes;
+	}
 
 
 }
