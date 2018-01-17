@@ -65,13 +65,14 @@ public class Individual {
 	
 	public static double[] normalize(double[] attributes) {
 		double sum = 0;
-		for(int i = 0; i < attributes.length; i++) {
+		
+		for(int i = 0; i < HaliteGenAlgo.NORMALIZE_NUM; i++) {
 			sum += attributes[i];
 		}
 		if(sum == 1) {
 			return attributes;
 		}
-		for(int i = 0; i < attributes.length; i++) {
+		for(int i = 0; i < HaliteGenAlgo.NORMALIZE_NUM; i++) {
 			attributes[i] = attributes[i] / sum;
 		}
 		return attributes;

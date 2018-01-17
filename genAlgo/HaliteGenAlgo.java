@@ -39,6 +39,7 @@ public class HaliteGenAlgo {
 	public static final int ATT_MAX_INT = 50;
 	public static final double ATT_MAX = 1.0;
 	
+	public static final int NORMALIZE_NUM =  Task.NUM_ACTIVE_TYPES;
 	
 	public static final int NUM_CHILDS = 4;
 	public static final int MAX_CHILD_MUT = 1; //should not be larger than NUM_CHILDS
@@ -79,8 +80,6 @@ public class HaliteGenAlgo {
 	String currentRunID;
 	
 	//int numIndividuals;
-
-
     
     ArrayList<String> bots;
     ArrayList<String> futureBots;
@@ -99,10 +98,14 @@ public class HaliteGenAlgo {
 	int numAtts;
 	//int[] atts;
 	//ArrayList<LinkedList<Double>> popScores;
+	boolean[] bsr;
     ArrayList<Individual> population;
     ArrayList<Individual> restPopulation;
     ArrayList<Individual> parents;
     ArrayList<Individual> children;
+    int avoidParent1ID;
+    int avoidParent2ID;
+
     int bestIndID;
 	private int nextIteration;
 	private int nextBatch;
@@ -186,20 +189,16 @@ public class HaliteGenAlgo {
 
 
 	
-	public void compute() {
-		computeGen();
-		System.out.println("HaliteGenAlgo:current Generation:");
-		printGen(population);
-	}
-	
-	public void computeGen() {
+	private void compute() {
 	    select(); //set individuals with the highest score for the new population;
 	    recombine(); //create children from the selected parents
-	    mutate(); //mutate some of the children (and add all childs to new population)
+	    mutate(); //mutate some of the children (and add all childs to new population)		System.out.println("HaliteGenAlgo:current Generation:");
+		printGen(population);
 	}
 
 
-	public void select() { //currently: select the individuals with the best score and add them to "parents"
+
+	private void select() { //currently: select the individuals with the best score and add them to "parents"
 		//System.out.println("Popscore size = " + popScores.size() + ", rpopulation.size = " + population.size());
 		System.out.println("population, before sorting: ");
 		printGen(population);
@@ -218,16 +217,84 @@ public class HaliteGenAlgo {
 		}
 	}
 	
+	/**
+	 * sorts by ranking
+	 * @param population to be sorted
+	 * @return
+	 */
+	public ArrayList<Individual> sortByFitness(ArrayList<Individual> population){ // ALSO writes bestIndID
+		ArrayList<Individual> sortedPopulation = new ArrayList<>(NUM_INDV);
+		int indvIndex = 0;
+		bestIndID = rankings.get(0);
+		for(int j = 0; j < rankings.size(); j++) {
+			indvIndex = rankings.get(j);
+			sortedPopulation.add(population.get(indvIndex));
+		}
+		bsr = new boolean[sortedPopulation.size()];
+		for(int i = 0; i < sortedPopulation.size(); i++) {
+			bsr[i] = ioHandler.hasBadStarterRating(i);
+		}
+		return sortedPopulation;
+	}
 	
-	public void recombine() {
+	
+	
+	private void recombine() {
 		children = new  ArrayList<>();
 		int numSurvived = population.size();
-		for(int i = 0; i < NUM_CHILDS; i++) {
-			int firstParent = randNum.nextInt(numSurvived);
-			int secondParent = randNum.nextInt(numSurvived-1);
-			if(secondParent >= firstParent) { // secondParent != firstParent
-				secondParent ++;
+		int firstParent = 0;
+		int secondParent = 0;
+		int numGoodParents = 0;
+		boolean firstParentSet = false;
+		for(int pit = 0; pit < bsr.length; pit++) {
+			if(bsr[pit]) {
+				continue;
 			}
+			numGoodParents++;
+			if(firstParentSet) {
+				secondParent = pit;
+			} else {
+				firstParent = pit;
+				firstParentSet = true;
+			}
+		}
+		for(int i = 0; i < NUM_CHILDS; i++) {
+			if(numGoodParents == 0) {
+				firstParent = randNum.nextInt(numSurvived);
+				secondParent = randNum.nextInt(numSurvived-1);
+			} else if(numGoodParents == 1) {
+				secondParent = randNum.nextInt(numSurvived-1);
+				if(secondParent >= firstParent) { // secondParent != firstParent
+					secondParent ++;
+				}
+			} else if(numGoodParents > 2) {
+				firstParent = randNum.nextInt(numSurvived);
+				int fpStart = firstParent;
+				for(int pi = firstParent; pi < fpStart+numSurvived; pi++) {
+
+					if(bsr[firstParent]) {
+						firstParent = (firstParent+1)%population.size();
+
+					} else {
+
+						break;
+					}
+
+				}
+				secondParent = randNum.nextInt(numSurvived);
+				int spStart = secondParent;
+				for(int pi = secondParent; pi < spStart+numSurvived; pi++) {
+					if(bsr[secondParent] || secondParent == firstParent) {
+						secondParent = (secondParent+1)%population.size();
+					} else {
+						break;
+					}
+
+				}
+
+			}
+
+
 			children.add(Individual.recombineDistr(population.get(firstParent), population.get(secondParent)));
 
 		}
@@ -262,7 +329,7 @@ public class HaliteGenAlgo {
 	} */
 
 	
-	public void mutate() {
+	private void mutate() {
 		int childrenMutated = 0;
 		Individual childm;
 		while(childrenMutated < MAX_CHILD_MUT && children.size() > 0){
@@ -310,22 +377,7 @@ public class HaliteGenAlgo {
 		}
 		//restPopulation.clear();
 	}*/
-	
-	/**
-	 * sorts by ranking
-	 * @param population to be sorted
-	 * @return
-	 */
-	public ArrayList<Individual> sortByFitness(ArrayList<Individual> population){ // ALSO writes bestIndID
-		ArrayList<Individual> sortedPopulation = new ArrayList<>(NUM_INDV);
-		int indvIndex = 0;
-		bestIndID = rankings.get(0);
-		for(int j = 0; j < rankings.size(); j++) {
-			indvIndex = rankings.get(j);
-			sortedPopulation.add(population.get(indvIndex));
-		}
-		return sortedPopulation;
-	}
+
 
 	public void createGAITinfo(){
 		//Line 1
@@ -374,6 +426,8 @@ public class HaliteGenAlgo {
 		}
 	}*/
 	
+	
+
 	
 	public static int[] getNextItBa(int currentIt, int currentBa, int numIt, int numBa){
 		int[] next = new int[2];
@@ -534,7 +588,7 @@ public class HaliteGenAlgo {
 	 */
     public static void main(final String[] args){
     	randNum = new Random(System.currentTimeMillis());
-    	
+
     	
     	if(args.length==NUM_INIT_ARGS) {
     		System.out.println("HaliteGenAlgo:Initial run");
@@ -637,10 +691,6 @@ public class HaliteGenAlgo {
     	System.out.println(output);
     }
     
-
-    
-
-
     
     
 }

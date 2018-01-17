@@ -10,7 +10,7 @@ import hlt.Task.TaskType;
 
 //computes a "global" priority for ships
 public class Control {
-	public static final int NUM_UNSPEC_ATTS = 3;
+	public static final int NUM_UNSPEC_ATTS = 4;
 	public static final int NUM_ATTS = Task.NUM_ACTIVE_TYPES + NUM_UNSPEC_ATTS;
 	public static final int NUM_MAX_CHANGE_TURNS = 30;
 	private static final double MAX_ADD_RATIO = 0.4;

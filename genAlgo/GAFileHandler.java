@@ -526,6 +526,27 @@ public class GAFileHandler {
 	    return  scanner.nextInt();
 	}
 
+
+	//needs gait loaded
+    public boolean hasBadStarterRating(int id) {
+
+    	int sbotLine = 1;
+    	if(!externBots.isEmpty()) {
+    		if(getRankOf(id, 1) > HaliteGenAlgo.NUM_INDV) {
+    			return true;
+    		}
+    		sbotLine++;
+    	}
+    	
+    	if(!safeBots.isEmpty()) {
+    		if(getRankOf(id, sbotLine) > HaliteGenAlgo.NUM_INDV) {
+    			return true;
+    		}
+    	}
+    	return false;
+
+    	
+    }
 	
 	public static int getRankOf(int id, int currentLine) {
 		if(currentLine <= 0) {
