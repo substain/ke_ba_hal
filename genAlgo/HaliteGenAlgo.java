@@ -7,7 +7,10 @@ import java.math.BigDecimal;
 import java.math.MathContext;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedList;
+import java.util.Objects;
 import java.util.Random;
 
 import hlt.Control;
@@ -34,16 +37,15 @@ public class HaliteGenAlgo {
 	//in the current version, attributes shift from the start-distribution to the final distribution (= 2 different settings)
 	public static final int NUM_ATT_SETTINGS_PER_GAME = 1; 
 	
-	public static final int NUM_ATTS = Task.NUM_ACTIVE_TYPES + Control.NUM_UNSPEC_ATTS;
+	public static final int NUM_ATTS = Control.NUM_ATTS;
 	
 	public static final int ATT_MAX_INT = 50;
 	public static final double ATT_MAX = 1.0;
+
 	
-	public static final int NORMALIZE_NUM =  Task.NUM_ACTIVE_TYPES;
-	
-	public static final int NUM_CHILDS = 4;
-	public static final int MAX_CHILD_MUT = 1; //should not be larger than NUM_CHILDS
-	public static final int CHILD_MUTATE_DIV = 8; // probability to mutate a child is 1/CHILD_MUTATE_DIV
+	public static final int NUM_CHILDS = 5;
+	public static final int MAX_CHILD_MUT = 3; //should not be larger than NUM_CHILDS
+	public static final int CHILD_MUTATE_DIV = 2; // probability to mutate a child is 1/CHILD_MUTATE_DIV
 	
 	public static final int NUM_4PL_MATCHES = 1;
 	//io defaults
@@ -55,7 +57,7 @@ public class HaliteGenAlgo {
 	public static final String EXT_BOTS_FILENAME = "extbots.txt";
 
 	//public static final String MATCHUP_INIT = "";
-	public static final int MATCHES_PER_EXT_ROUND = 1;
+	public static final int MATCHES_PER_EXT_ROUND = 2;
 	public static final int MATCHES_PER_TOURN_ROUND = 3;
 	//public static final int MATCH_ARGS_TOURN_ROUND = 3;
 
@@ -74,6 +76,8 @@ public class HaliteGenAlgo {
 	
 	public static final int GAIT_LINES = 3;
 	public static final int GAIT_INIT_ARGS = 5;
+	private static final double PARENT_W_FACTOR = 0.1;
+	private static final int NUM_MAX_SBS = 2;
 
 	public static Random randNum;
 	
@@ -87,7 +91,7 @@ public class HaliteGenAlgo {
     ArrayList<String> externBotList;
     
     ArrayList<Integer> rankings;
-    
+    double[] parentWeightDistr;
 	int numIterations;
 	int iteration;
 	int numBatches;
@@ -98,7 +102,6 @@ public class HaliteGenAlgo {
 	int numAtts;
 	//int[] atts;
 	//ArrayList<LinkedList<Double>> popScores;
-	boolean[] bsr;
     ArrayList<Individual> population;
     ArrayList<Individual> restPopulation;
     ArrayList<Individual> parents;
@@ -129,12 +132,19 @@ public class HaliteGenAlgo {
 		GAFileHandler.clearAllScoresFolder();
     	//generate a random population
     	population = new ArrayList<>(NUM_INDV);
-    	for(int i = 0; i < NUM_INDV; i++) {
-        	double[] attrDistr = createRandomDoubleArray(NUM_ATTS);
-        	attrDistr = Individual.normalize(attrDistr);
-        	Individual newInd = new Individual(attrDistr, ATT_MAX);
-        	population.add(newInd);
+    	
+    	//createPopulation();
+    	if(Objects.equals(currentRunName, new String("cont"))) {
+        	System.out.println("CONTINUE RUN, LOADING OLD POPULATION");
+
+    		readOldPopulationAtts();
+
+    	} else {
+        	System.out.println("STANDARD RUN, CREATING NEW POPULATION");
+
+        	createPopulation3Distr();
     	}
+
     	
     	//printGen(population);
     	
@@ -148,8 +158,69 @@ public class HaliteGenAlgo {
     	saveCurrentBotAtts();
 	}
 
+	//extern bots convention: write the name of each Bot(ABcd123.java) in configs/static_configs/extbots.txt like this:
+	// ABcd123.java Klvb33.java ExampleBot.java
+	// Bots are assumed to be placed in 
+	
+
+	public void readPopulationAtts(){
+		population = new ArrayList<>(NUM_INDV);
+    	for(int i = 0; i < NUM_INDV; i++) {
+        	double[] attrDistr = GAFileHandler.readBotAtts(i, iteration, batch);
+        	Individual newInd = new Individual(attrDistr, ATT_MAX);
+        	population.add(newInd);
+    	}
+
+	}
+	
+	
+
+	public void readOldPopulationAtts(){
+		population = new ArrayList<>(NUM_INDV);
+    	for(int i = 0; i < NUM_INDV; i++) {
+        	double[] attrDistr = GAFileHandler.readOldBotAtts(i);
+        	Individual newInd = new Individual(attrDistr, ATT_MAX);
+        	population.add(newInd);
+    	}
+
+	}
     
-    /**
+    private void createPopulation() {
+    	for(int i = 0; i < NUM_INDV; i++) {
+        	double[] attrDistr = createRandomDoubleArray(NUM_ATTS);
+        	attrDistr = Individual.normalizeA(attrDistr);
+        	Individual newInd = new Individual(attrDistr, ATT_MAX);
+        	population.add(newInd);
+    	}
+		
+	}
+    
+    private void createPopulation3Distr() {
+    	int div_indv = NUM_INDV/4;
+
+    	for(int i = 0; i < NUM_INDV; i++) {
+    		double[] attrDistr;
+        	if(i < div_indv) {
+            	attrDistr = createQWeightedRandomDA(NUM_ATTS, 0);
+
+        	} else if (i < div_indv*2) {
+            	attrDistr = createQWeightedRandomDA(NUM_ATTS, 1);
+
+        	} else if (i < div_indv*3) {
+            	attrDistr = createQWeightedRandomDA(NUM_ATTS, 2);
+
+        	} else {
+            	attrDistr = createQWeightedRandomDA(NUM_ATTS, 3);
+
+        	}
+        	attrDistr = Individual.normalizeA(attrDistr);
+        	Individual newInd = new Individual(attrDistr, ATT_MAX);
+        	population.add(newInd);
+    	}
+		
+	}
+
+	/**
      * update Constructor
      * @param botNames given bot Names
      * @throws IOException 
@@ -174,7 +245,7 @@ public class HaliteGenAlgo {
 		
 		
 		if(batch != nextBatch) {
-			if(safeBots.size() > 3) {
+			if(safeBots.size() > NUM_MAX_SBS) {
 				safeBots.remove(0);
 			}
 			safeBots.add(bots.get(0));
@@ -193,23 +264,24 @@ public class HaliteGenAlgo {
 	    select(); //set individuals with the highest score for the new population;
 	    recombine(); //create children from the selected parents
 	    mutate(); //mutate some of the children (and add all childs to new population)		System.out.println("HaliteGenAlgo:current Generation:");
-		printGen(population);
+		System.out.println("population, after");
+	    printGen(population);
 	}
 
 
 
 	private void select() { //currently: select the individuals with the best score and add them to "parents"
 		//System.out.println("Popscore size = " + popScores.size() + ", rpopulation.size = " + population.size());
-		System.out.println("population, before sorting: ");
+		System.out.println("population, before");
 		printGen(population);
-		System.out.println("select: rankings:");
-		printIntArrayList(rankings);
+		//System.out.println("select: rankings:");
+		//printIntArrayList(rankings);
 		restPopulation = sortByFitness(population);
 		population = new ArrayList<>(NUM_INDV);
 		int numSurvivingIndv = NUM_INDV - NUM_CHILDS;
 
-		System.out.println("restpopulation, after sorting: ");
-		printGen(restPopulation);
+		//System.out.println("restpopulation, after sorting: ");
+		//printGen(restPopulation);
 
 		//parents = new ArrayList<>(NUM_PARENT_INDV);
 		for(int i = 0; i < numSurvivingIndv; i++) {
@@ -222,18 +294,41 @@ public class HaliteGenAlgo {
 	 * @param population to be sorted
 	 * @return
 	 */
-	public ArrayList<Individual> sortByFitness(ArrayList<Individual> population){ // ALSO writes bestIndID
+	public ArrayList<Individual> sortByFitness(ArrayList<Individual> population){ // ALSO writes bestIndID and parentWeightDistr
 		ArrayList<Individual> sortedPopulation = new ArrayList<>(NUM_INDV);
 		int indvIndex = 0;
 		bestIndID = rankings.get(0);
+		ArrayList<Integer> botIds = new ArrayList<>();
+		
 		for(int j = 0; j < rankings.size(); j++) {
 			indvIndex = rankings.get(j);
+			botIds.add(indvIndex);
 			sortedPopulation.add(population.get(indvIndex));
 		}
-		bsr = new boolean[sortedPopulation.size()];
-		for(int i = 0; i < sortedPopulation.size(); i++) {
-			bsr[i] = ioHandler.hasBadStarterRating(i);
+		
+		parentWeightDistr = new double[sortedPopulation.size()];
+		double pwdLength = (double) parentWeightDistr.length;
+
+		//first round rankings
+		if(externBotList.isEmpty() && safeBots.isEmpty()) {
+			for(int i = 0; i < parentWeightDistr.length; i++) {
+				parentWeightDistr[i] = 1/pwdLength;
+			}
+		} else {
+			//System.out.println("HGA: sortByFitness : sortedpopulation:");
+			//printGen(sortedPopulation);
+			ArrayList<Double> firstScores = GAFileHandler.collectInitScores(botIds, iteration, batch, externBotList.size(),  safeBots.size());
+			HashMap<Integer, Integer> frRanking = GAFileHandler.createRankings(botIds, firstScores, 1 , sortedPopulation.size());
+			int maxRanking = Collections.max(frRanking.keySet());
+			int halfRanking = maxRanking / 2;
+			for(int i = 0; i < parentWeightDistr.length; i++) {
+				parentWeightDistr[i] = 1/pwdLength;
+				parentWeightDistr[i] = parentWeightDistr[i] * ((double)((maxRanking-frRanking.get(i))-halfRanking)/pwdLength) * PARENT_W_FACTOR;
+				parentWeightDistr = Individual.normalize(parentWeightDistr);
+				//System.out.println("parentweightdistr: " +parentWeightDistr[i]);
+			}
 		}
+
 		return sortedPopulation;
 	}
 	
@@ -241,58 +336,45 @@ public class HaliteGenAlgo {
 	
 	private void recombine() {
 		children = new  ArrayList<>();
-		int numSurvived = population.size();
 		int firstParent = 0;
 		int secondParent = 0;
-		int numGoodParents = 0;
-		boolean firstParentSet = false;
-		for(int pit = 0; pit < bsr.length; pit++) {
-			if(bsr[pit]) {
-				continue;
-			}
-			numGoodParents++;
-			if(firstParentSet) {
-				secondParent = pit;
-			} else {
-				firstParent = pit;
-				firstParentSet = true;
-			}
-		}
+
 		for(int i = 0; i < NUM_CHILDS; i++) {
-			if(numGoodParents == 0) {
-				firstParent = randNum.nextInt(numSurvived);
-				secondParent = randNum.nextInt(numSurvived-1);
-			} else if(numGoodParents == 1) {
-				secondParent = randNum.nextInt(numSurvived-1);
-				if(secondParent >= firstParent) { // secondParent != firstParent
-					secondParent ++;
-				}
-			} else if(numGoodParents > 2) {
-				firstParent = randNum.nextInt(numSurvived);
-				int fpStart = firstParent;
-				for(int pi = firstParent; pi < fpStart+numSurvived; pi++) {
-
-					if(bsr[firstParent]) {
-						firstParent = (firstParent+1)%population.size();
-
-					} else {
-
+			
+				//CHOOSE FIRST PARENT WITH PROBABILITY ACCORDING TO parentWeightDistr
+				double firstParentD = randNum.nextDouble();
+				double dsum = 0;
+				for(int di = 0; di < parentWeightDistr.length; di++) {
+					if(firstParentD < dsum+parentWeightDistr[di]) {
+						firstParent = di;
 						break;
 					}
-
+					dsum+=di;
 				}
-				secondParent = randNum.nextInt(numSurvived);
-				int spStart = secondParent;
-				for(int pi = secondParent; pi < spStart+numSurvived; pi++) {
-					if(bsr[secondParent] || secondParent == firstParent) {
-						secondParent = (secondParent+1)%population.size();
-					} else {
+				 
+				//SET UP secondParentWeightDistr BY ELIMINATING firstParent FROM THE DISTRIBUTION
+			    double[] secondParentWeightDistr = new double[parentWeightDistr.length-1];
+			    int spind = 0;
+			    for(int sp = 0; sp < secondParentWeightDistr.length; sp++) {
+			    	if(sp >= firstParent) {
+			    		spind = sp + 1;
+			    	} else {
+			    		spind = sp;
+			    	}
+		    		secondParentWeightDistr[sp] = parentWeightDistr[spind];
+			    }
+			    secondParentWeightDistr = Individual.normalize(secondParentWeightDistr);
+			    
+				//CHOOSE SECOND PARENT WITH PROBABILITY ACCORDING TO secondParentWeightDistr
+				double secondParentD = randNum.nextDouble();
+				double d2sum = 0;
+				for(int di = 0; di < secondParentWeightDistr.length; di++) {
+					if(secondParentD < d2sum+secondParentWeightDistr[di]) {
+						secondParent = di;
 						break;
 					}
-
+					d2sum+=di;
 				}
-
-			}
 
 
 			children.add(Individual.recombineDistr(population.get(firstParent), population.get(secondParent)));
@@ -476,20 +558,6 @@ public class HaliteGenAlgo {
 	
 
 
-	//extern bots convention: write the name of each Bot(ABcd123.java) in configs/static_configs/extbots.txt like this:
-	// ABcd123.java Klvb33.java ExampleBot.java
-	// Bots are assumed to be placed in 
-	
-
-	public void readPopulationAtts(){
-		population = new ArrayList<>(NUM_INDV);
-    	for(int i = 0; i < NUM_INDV; i++) {
-        	double[] attrDistr = GAFileHandler.readBotAtts(i, iteration, batch);
-        	Individual newInd = new Individual(attrDistr, ATT_MAX);
-        	population.add(newInd);
-    	}
-
-	}
 
 	/*
 	
@@ -640,7 +708,7 @@ public class HaliteGenAlgo {
     		return 0;
     	}
     	double returnvalue = (sum.divide(BigDecimal.valueOf(count), MathContext.DECIMAL128)).doubleValue();
-		System.out.println("c = " + count + " , sum = " + sum + ", avg = " + returnvalue);
+		//System.out.println("c = " + count + " , sum = " + sum + ", avg = " + returnvalue);
 
     	return returnvalue;
     }
@@ -659,6 +727,17 @@ public class HaliteGenAlgo {
     	double[] newData = new double[attNum];
     	for(int i = 0; i < newData.length; i++) {
     		newData[i] = randNum.nextDouble();
+    	}
+    	return newData;
+    }
+    
+    public static double[] createQWeightedRandomDA(int attNum, int quarter) {
+    	double[] newData = new double[attNum];
+
+    	for(int i = 0; i < newData.length; i++) {
+    		if(i % 4 == quarter) {
+    			newData[i] = (randNum.nextDouble() * 0.25) + 0.75;
+    		} else newData[i] = randNum.nextDouble() *0.75;
     	}
     	return newData;
     }

@@ -12,6 +12,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.Map;
 
@@ -20,9 +22,16 @@ import genAlgo.GAFileHandler;
 
 
 public class ModifiedBot {
+	
+	public static final double PLANET_DOM_FACTOR = 0.2;
+	public static final double SHIP_DOM_FACTOR = 0.6;
+	public static final double MIN_DOM_VAL = 0.2;
+
+	public static final double DIST_RANGE_FACTOR = 2.5;
 	public static final boolean useBotID = true;
 
 	private static double distanceUnit;
+
 	
     public static void main(final String[] args) throws IOException {
         final Networking networking = new Networking();
@@ -68,129 +77,180 @@ public class ModifiedBot {
         		}
 
     		}
-    		Log.log("attribute file: " + !fileNotFound);
+    		//Log.log("attribute file: " + !fileNotFound);
     		if(!fileNotFound) {
     			attributes =  GAFileHandler.readBotAttsByName(botname);
-            	Log.log("Attribute file found and loaded.");
+            	//Log.log("Attribute file found and loaded.");
     		}
 
         }
         if(!usingBotID || fileNotFound) {
-        	Log.log("static ship distr");
+        	//Log.log("static ship distr");
 
 	        for(int i = 0; i < attributes.length; i++) {
-	        	attributes[i] = 0;
+	        	attributes[i] = 0.1; //TODO CHANGE
 	        }
-	        attributes[Task.getTaskTypeIndex(TaskType.AttackAny)] = 0.15;
-	        attributes[Task.getTaskTypeIndex(TaskType.Reinforce)] = 0.35;
-	        attributes[Task.getTaskTypeIndex(TaskType.Expand)] = 0.5;
+	      //21 MyBot3
+		    attributes[0] = 0.5803125976743176;
+		    attributes[1] = 0.046003300352238506;
+		    attributes[2] = 0.17665620421171335;
+		    attributes[3] = 0.0364037598385752;
+		    attributes[4] = 0.1606241379231553;
+		         
+		    
+		    attributes[5] = 0.010796072792501105;
+		    attributes[6] = 0.10754372226464769;
+		    attributes[7] = 0.20395802689134113;
+		    attributes[8] = 0.2586096123823068;
+		    attributes[9] = 0.1291208823231525;
+
+		    attributes[10] = 0.10123385897589084;
+		    attributes[11] = 0.0863916292566951;
+		    attributes[12] = 0.052303964173575336;
+		    attributes[13] = 0.0058783615264336436;
+		    attributes[14] = 0.025008782108161508;
+
+		    attributes[15] = 0.019155087305294506;
+		    attributes[16] = 0.6761910266983268;
+		    attributes[17] = 0.2763319750287725;
+		    attributes[18] = 0.16527308394326368;
+		    attributes[19] = 0.31661848922604774;
+
+		    attributes[20] = 0.6124013939277902;
+
 
         }
         
         
+    
+        double[] shipDistribution = new double[Control.NUM1ATTS];
         
-        for(int i = 0; i < attributes.length; i++) {
-        	Log.log("shipdistr("+i+"): " + Task.getTaskTypeByIndex(i).toString() + " : " + attributes[i]);
-        }
-        
-        double[] shipDistribution = new double[Task.NUM_ACTIVE_TYPES];
         for(int i = 0; i < shipDistribution.length; i++) {
+        	//Log.log("shipdistr("+i+"): " + Task.getTaskTypeByIndex(i).toString() + " : " + attributes[i]);
         	shipDistribution[i] = attributes[i];
         }
         
-        double taskChangeTime = attributes[Task.NUM_ACTIVE_TYPES];
-        double addFactor = attributes[Task.NUM_ACTIVE_TYPES+1];
+        
+        double[] mapDifValues = new double[Control.NUM2ATTSIZE];
+        
+        for(int i = 0; i < mapDifValues.length; i++) {
+        	//Log.log("mapDif("+i+"): " + MapDif.mapDifAttString(i) + " : " + attributes[i]);
+        	mapDifValues[i] = attributes[i+Control.NUM1ATTS]-0.5;
+        }
+        
+        double globalPrioThresh = attributes[Control.NUM2ATTS] * Control.GLOBAL_PRIO_FACTOR;
+        double mapDifTaskChangeTime = attributes[Control.NUM2ATTS+1];
+        double mapDifChangeFactor = attributes[Control.NUM2ATTS+2];
+        double attDistUnitFactor = attributes[Control.NUM2ATTS+3];
+        double targetSpecificPlayer = attributes[Control.NUM2ATTS+4]; 
+       
+        
+        
 
-        final Control controller = new Control(myId, shipDistribution, taskChangeTime, addFactor); 
-        //controller.changeRatioOverTime(finalShipDistr,roundsWithoutChange, roundsUntilFinalDist);
-        
-        final Evaluator evaluator = new Evaluator(gameMap, botname);
-        
-        
-        evaluator.setIteration(currentIt);
-        //final double usedFudge = Constants.FORECAST_FUDGE_FACTOR;
+        int numPlayers = gameMap.getAllPlayers().size();
         Map<Integer, Planet> lastKnownPlanets = gameMap.getAllPlanets();
-        //Map<Integer, Ship> lastKnownShips = gameMap.getMyPlayer().getShips();
-
         // We now have 1 full minute to analyse the initial map.
         final String initialMapIntelligence =
                 "width: " + gmWidth +
                 "; height: " + gmHeight +
-                "; players: " + gameMap.getAllPlayers().size() +
-                "; planets: " + gameMap.getAllPlanets().size();
-        Log.log(initialMapIntelligence);
+                "; players: " + lastKnownPlanets.size() +
+                "; planets: " + lastKnownPlanets.size();
+        //Log.log(initialMapIntelligence);
         
-        distanceUnit =(gmWidth + gmHeight)/2 / (lastKnownPlanets.size()*2);
-        Log.log("distUnit = " + distanceUnit);
+        distanceUnit =(gmWidth + gmHeight)/2 * attDistUnitFactor; 
+        double initRange = DIST_RANGE_FACTOR * distanceUnit * (1 / (double) numPlayers);
+        //Log.log("distUnit = " + distanceUnit + ", range = " + initRange);
+        
 
-        //create a map of coordinates, where true means a planet (or its safety-zone) is on that coordinate
-        //boolean[][] hitmap = createHitmap(gameMap, usedFudge); //TODO only keep this in PathFinder
-        //final PathFinder pfinder = new PathFinder(hitmap);
         ShadowPathFinder shPathFinder = new ShadowPathFinder(gameMap);
+        double maxPlanetSize = shPathFinder.getMaxPlanetSize();
+        
+        final Control controller = new Control(myId, shipDistribution, mapDifTaskChangeTime, mapDifChangeFactor);
+        controller.setGlobalDifThresh(globalPrioThresh);
+        final LocalChecker localPrio = new LocalChecker(myId, initRange, shipDistribution[Task.getTaskTypeIndex(TaskType.Diversion)], maxPlanetSize, targetSpecificPlayer);
+
+        final Evaluator evaluator = new Evaluator(gameMap, botname);
+        evaluator.setIteration(currentIt);
+        //Log.log("maxPlanetSize = " + maxPlanetSize);
+
         final MapDif mdif = new MapDif(gameMap);
-
-        //DEBUG
-		Log.log(shPathFinder.allPlanetsToString());
-		
-		
-		
-
 
         HashMap<Integer, Task> tasks = new HashMap<>();
         HashMap<Integer, Position> lastPositions = new HashMap<>();
 
+             
         final ArrayList<Move> moveList = new ArrayList<>();
+
         
-        //HashMap<Integer, Position> lastShipPositions = new HashMap<>();
-        //HashMap<Integer, Position> currentShipPositions = new HashMap<>();
-        
-        //int rounds = 0;
         for (;;) {
         	       	
         	moveList.clear();
             networking.updateMap(gameMap);
-            controller.setDynPossibleTasks(gameMap);
-
-            evaluator.evaluateRound(gameMap); //computes current score
+            mdif.update(gameMap, false);
+            //HashSet<Integer> activeships = mdif.getMyActiveShips();
+/*
+            Iterator<Integer> taskIt = tasks.keySet().iterator();
+            while (taskIt.hasNext()) {
+            	Integer shipId = taskIt.next();
+            	if (!activeships.contains(shipId)) {
+            		taskIt.remove();
+            	}
+            }*/
             
+            controller.initRound(tasks);
+
+            controller.setDynPossibleTasks(gameMap);
+            evaluator.evaluateRound(gameMap); //computes current score
+
+
             
         	// ALL_PLANETS  ALL_OWNEDPLANETS ALL_ENEMYPLANETS  ALL_SHIPS ALL_ENEMYSHIPS 
         	// OWNEDPLANETS_PERC MYSHIPS_PERC  MYPLANETS_PERC 
-            mdif.update(gameMap, false);
-            
-            int myOwnedPlanetDif = mdif.getMyPlanetDif();
-        	double ownedPlanetsPercDif = mdif.getPercDif(MapDif.OWNEDPLANETS_PERC);
-        	double myShipsPerc = mdif.getPercDif(MapDif.MYSHIPS_PERC);
 
-        	if(mdif.percExceedThresh(MapDif.OWNEDPLANETS_PERC, 0.5, true)) {
-        		controller.changeRatioField(TaskType.AttackAny, true);
-        		controller.changeRatioField(TaskType.AttackAny, true);
-        		controller.changeRatioField(TaskType.Conquer, true);
+            
+            //int myOwnedPlanetDif = mdif.getMyPlanetDif();
+        	double myOwnedShipsPerc = mdif.getPerc(MapDif.MYSHIPS_PERC);
+        	double myOwnedPlanetsPerc = mdif.getPerc(MapDif.MYPLANETS_PERC);
+        	double myOwnedPlanetsPercDif = mdif.getPercDif(MapDif.MYPLANETS_PERC);
+        	
+        	//OWNED PLANETS OVER THRESHOLD: 
+        	double opotThresh = 0;
+        	if(mdif.percExceedThresh(MapDif.OWNEDPLANETS_PERC, mapDifValues[MapDif.OPOT_THRESH_V], true)) {
+        		opotThresh = 1;
         	}
-            if(myOwnedPlanetDif > 0) {
-        		controller.changeRatioField(TaskType.AttackAny, true);
-        		controller.changeRatioField(TaskType.Reinforce, true);
-        		controller.changeRatioField(TaskType.Expand, false);
 
-            } else if (myOwnedPlanetDif < 0) {
-        		controller.changeRatioField(TaskType.Reinforce, false);
-            }
-            if(ownedPlanetsPercDif < 0) {
-        		controller.changeRatioField(TaskType.Expand, true);
-
-            } else if(ownedPlanetsPercDif > 0) {
-        		controller.changeRatioField(TaskType.Expand, false);
-        		controller.changeRatioField(TaskType.Reinforce, true);
-            } 
-            if(myShipsPerc < 0) {
-        		controller.changeRatioField(TaskType.AttackAny, false);
-        		controller.changeRatioField(TaskType.Conquer, false);
-
-            } else if(myShipsPerc > 0) {
-        		controller.changeRatioField(TaskType.Conquer, true);
-            } 
+        	double attDif = mapDifValues[MapDif.MOP_CH_ATT] * myOwnedPlanetsPercDif
+        			 	+	mapDifValues[MapDif.OPOT_CH_ATT] * opotThresh;
+        	
+            double conDif = mapDifValues[MapDif.MOP_CH_CON] * myOwnedPlanetsPercDif
+            			+	mapDifValues[MapDif.OPOT_CH_CON] * opotThresh;
             
+            double expDif = mapDifValues[MapDif.MOP_CH_EXP] * myOwnedPlanetsPercDif
+       					+	mapDifValues[MapDif.OPOT_CH_EXP] * opotThresh;
             
+            double reiDif = mapDifValues[MapDif.MOP_CH_REI] * myOwnedPlanetsPercDif
+       			 		+	mapDifValues[MapDif.OPOT_CH_REI] * opotThresh;
+            
+            double divDif = mapDifValues[MapDif.MOP_CH_DIV] * myOwnedPlanetsPercDif
+       			 		+	mapDifValues[MapDif.OPOT_CH_DIV] * opotThresh;
+            
+            controller.changeRatioField(TaskType.AttackAny, attDif);
+            controller.changeRatioField(TaskType.Conquer, conDif);
+            controller.changeRatioField(TaskType.Expand, expDif);
+            controller.changeRatioField(TaskType.Reinforce, reiDif);
+            controller.changeRatioField(TaskType.Diversion, divDif);
+            
+            int strongestPlID = mdif.getStrongestEnemyPlID();
+            int weakestPlID = mdif.getWeakestEnemyPlID();
+            
+            // PLANET_DOM_FACTOR SHIP_DOM_FACTOR MIN_DOM_VAL
+            //Log.log("myOwnedShipsperc = " + myOwnedShipsPerc + "myOwnedPlanetsPerc = " + myOwnedPlanetsPerc + "myOwnedPlanetsPercDif = " + myOwnedPlanetsPercDif + "opotThresh" + opotThresh);
+            
+            double dominationFactor = myOwnedPlanetsPerc * PLANET_DOM_FACTOR + myOwnedShipsPerc * SHIP_DOM_FACTOR + MIN_DOM_VAL; //should be slowly increasing, with planets_owned and ownedShips/allships
+            double range = Math.min(gmWidth,  DIST_RANGE_FACTOR * distanceUnit * dominationFactor);
+            localPrio.updateRange(range);
+            
+            //Log.log("domfactor = " + dominationFactor + ", range = " + range);
             
             Position fleePos = getFleePos(gameMap);
 
@@ -220,47 +280,68 @@ public class ModifiedBot {
             	expectedPositions = estimateShipPositions(currentPostions, lastPositions);
             }
             
-            HashMap<Integer, Integer> targetedPlanets = new HashMap<>();
-            		
+            HashMap<Integer, Integer> targetedPlanets = new HashMap<>(); //planets I want to go to
+            Collection<Ship> shiplist = gameMap.getMyPlayer().getShips().values();
+            ArrayList<Entity> myShipPositions = new ArrayList<>(shiplist.size()); //my ship positions that could collide with other ships
+            ArrayList<Entity> diversionObstructions = new ArrayList<>(shiplist.size());	 //my ship positions and enemy ship positions
+            ArrayList<Entity> obstructedPositions;
+            
+            for(Map.Entry<Integer, Position> mapentry : expectedPositions.entrySet()) {
+            	Position pos = mapentry.getValue();
+            	diversionObstructions.add(new Entity(-1, -1, pos.getXPos(), pos.getYPos(), 10, Constants.FORECAST_FUDGE_FACTOR_DIV));
+            }
+            
+            
 //            int ship_id = 0;	
-            int ship_count = 0;
-            double range = Math.min(gmWidth, (double)(0.20*gameMap.getMyPlayer().getShips().size()*distanceUnit));
+            //int ship_count = 0;
 
             
-            Collection<Ship> shiplist = gameMap.getMyPlayer().getShips().values();
-            ArrayList<Entity> myExpectedPositions = new ArrayList<>(shiplist.size());
-
             for (final Ship ship : shiplist) {
-            	Log.log("debug: ship" + ship_count + ", id:" + ship.getId() + ", pos:" + ship.getXPos() +"|"+ ship.getYPos());
-            	ship_count++;
+            	//Log.log("debug: ship" + ship_count + ", id:" + ship.getId() + ", pos:" + ship.getXPos() +"|"+ ship.getYPos());
+            	//ship_count++;
+                Map<Double, Entity> entities_by_dist = gameMap.nearbyEntitiesByDistance(ship);
+
+            	localPrio.compute(ship, entities_by_dist, targetedPlanets, gameMap, strongestPlID, weakestPlID);
+            	obstructedPositions = localPrio.getEntitiesInRange();
+            	for(Entity e: myShipPositions) {
+            		if(ship.getDistanceTo(e) <= Constants.FLY_RANGE )
+            		obstructedPositions.add(e);
+            		diversionObstructions.add(e);
+            	}
             	if(tasks.containsKey(ship.getId())) {
             		Task currentTask = tasks.get(ship.getId());
             		currentTask.update(gameMap, ship);
             		TaskStatus currentStatus = currentTask.getStatus();
             		if(currentStatus != TaskStatus.Invalid) {
-            			currentTask.setObstructedPositions(myExpectedPositions);
+            			
 
-            			if(currentTask.isAttackType() && expectedPositions.containsKey(currentTask.getTargetId())) {
+            			if(currentTask.isShipTargetType() && expectedPositions.containsKey(currentTask.getTargetId())) {
             				currentTask.setEstimatedPos(expectedPositions.get(currentTask.getTargetId()));
             			}
             			
             			if(currentTask.isDiversion()) {
             				
+            				Ship newDivTarget = localPrio.getDivTarget();
+            				if(newDivTarget != null) {
+                				currentTask.updateTarget(localPrio.getDivTarget());
+            				}
+                			currentTask.setObstructedPositions(diversionObstructions);
 
             				currentTask.setFleePos(fleePos);
-                			Log.log("computing fleePath");
 
                 			LinkedList<Position> fleePath = shPathFinder.getPathToPos(ship, fleePos, gameMap);
                 			if(!fleePath.isEmpty()) {
                 				currentTask.setFleePath(fleePath);
                 			} else {
-                    			Log.log("fleePath empty :(");
                 			}
 
+            			} else {
+                			currentTask.setObstructedPositions(obstructedPositions);
             			}
             			
-            			//TODO: use pathfinder here
             			
+            			
+            			// USE PATHFINDER
             			if(currentTask.needsPath()) {
             				LinkedList<Position> shpath = shPathFinder.getPathToPos(ship, currentTask.getTarget(), gameMap);
             				if(!shpath.isEmpty()) {
@@ -268,23 +349,21 @@ public class ModifiedBot {
             				}
             			}
             			
-            			//TODO: setObstructedPositions here
             			Move move = currentTask.computeMove();
-            			//getExpectedPos() and set this in an updated liveHitMap
             			if(move != null) {
             				moveList.add(move);
-            				if(move.getType() == MoveType.Thrust) {
+            				if(move.getType() == MoveType.Thrust) { 	// SET OBSTRUCTED POSITIONS
             					ThrustMove tm = (ThrustMove) move;
             					Position thisExpectedPos = tm.getExpectedPosition(ship);
-            					//currentHitmap[expectedX][expectedY] = true;
-            					myExpectedPositions.add(new Entity(-1, -1, thisExpectedPos.getXPos(), thisExpectedPos.getYPos(), 10, Constants.SHIP_RADIUS));
+            					myShipPositions.add(new Entity(-1, -1, thisExpectedPos.getXPos(), thisExpectedPos.getYPos(), 10, Constants.FORECAST_FUDGE_FACTOR_S));
+            					diversionObstructions.add(new Entity(-1, -1, thisExpectedPos.getXPos(), thisExpectedPos.getYPos(), 10, Constants.FORECAST_FUDGE_FACTOR_S));
+
             				}
                         	
             				if(currentTask.getType() != TaskType.Dock) {
                 				controller.increaseShipNum(currentTask.getType());
             				}
                    
-            				Log.log("Ship: " + ship.getId() + " setting move (cont, "+ currentTask.getType().toString() +" ). \n");
             				if(currentStatus == TaskStatus.WillDock) {
             					newTasks.put(ship.getId(), new Task(ship, gameMap, TaskType.Dock, currentTask.getTarget()));
             				} else {
@@ -293,213 +372,108 @@ public class ModifiedBot {
                 			continue;
             			}
             		} else {
-        				Log.log("Ship: " + ship.getId() + " move (cont, "+ currentTask.getType().toString() +" was invalid, get new one ). \n");
-        				//tasks.remove(ship.getId());
+        				controller.decreaseShipNum(currentTask.getType());
+        				tasks.remove(ship.getId());
             		}
             	}
             	
-                Map<Double, Entity> entities_by_dist = gameMap.nearbyEntitiesByDistance(ship);
-
-            	/*
-            
             	
-                if (ship.getDockingStatus() != Ship.DockingStatus.Undocked) {
-            		//Log.log("Ship " + ship.getId() + ": (docked) \n");
-                    continue;
-                }
-                */
-//            	ship_id++;
+            	
+            	// ########## COMPUTE NEW TASKS ###############
+
+            	
+
             	
             	Task nTask;
-            	TaskType newType = controller.getNextTypeAndUpdate(); 
-            	switch(newType) {
-            	case Diversion:
-            		Ship tShip = getNearestEnemyShip(ship, entities_by_dist, gameMap);
-                	if(tShip != null) {
-                    	nTask = new Task(ship, gameMap, TaskType.Diversion, tShip);
-                    	nTask.setObstructedPositions(myExpectedPositions);
+            	Move move;
+            	if(controller.isWithinGlobalDifThresh()) {
+          
+                	//Log.log("within global dif thresh -> local prio");
 
-                    	if(expectedPositions.containsKey(tShip.getId())) {
-                    		Position estPos = expectedPositions.get(tShip.getId());
-                    		nTask.setEstimatedPos(estPos);
-            				LinkedList<Position> shpath = shPathFinder.getPathToPos(ship, estPos, gameMap);
-            				if(!shpath.isEmpty()) {
-            					nTask.setPath(shpath);
-            				}
+            		nTask = localPrio.getHighestTask();
 
-            			} else {
-            				LinkedList<Position> shpath = shPathFinder.getPathToPos(ship, tShip, gameMap);
-            				if(!shpath.isEmpty()) {
-            					nTask.setPath(shpath);
-            				}
+                  	if(nTask.getTarget() == null) {
+                	}
+            		controller.increaseShipNum(nTask.getType());
+            	} else {
+            		
+                	//Log.log("exceed global dif thresh -> global prio");
 
-            			}
+                	TaskType t = controller.getNextTypeAndUpdate();
+                	//Log.log("wanted type: " + t.toString());
 
-            			
+            		nTask = localPrio.getHighestTastPreferType(t);
+
+                	if(nTask.getTarget() == null) {
+                	}
+            	}
+            	//Log.log("Got new Task for " + ship.getId() + ", nTask = " + nTask.getType().toString());
+            	Entity ntTarget = nTask.getTarget();
+            	if(ntTarget instanceof Planet) { // EXPAND OR REINFORCE
+
+            		int nttid = ntTarget.getId();
+            		if(targetedPlanets.containsKey(nttid)) {
+            			targetedPlanets.put(nttid, targetedPlanets.get(nttid)+1);
+        			} else {
+            			targetedPlanets.put(nttid, 1);
+        			}
+            		
+    				LinkedList<Position> shpath = shPathFinder.getPathToPlanet(ship, (Planet) ntTarget);
+    				if(!shpath.isEmpty()) {
+    					nTask.setPath(shpath);
+    				}
+            	} else {  // ATTACKANY OR CONQUER OR DIVERSION
+            		Ship tShip = (Ship) ntTarget;
+                	tShip.getId();
+
+            		if(expectedPositions.containsKey(tShip.getId())) {
+
+                		Position estPos = expectedPositions.get(tShip.getId());
+
+                		nTask.setEstimatedPos(estPos);
+
+                		LinkedList<Position> shpath = shPathFinder.getPathToPos(ship, estPos, gameMap);
+        				if(!shpath.isEmpty()) {
+        					nTask.setPath(shpath);
+        				}
+        			} else {
+
+        				LinkedList<Position> shpath = shPathFinder.getPathToPos(ship, tShip, gameMap);
+        				if(!shpath.isEmpty()) {
+        					nTask.setPath(shpath);
+        				}
+        			}
+            		if(nTask.getType() == TaskType.Diversion){
+                    	nTask.setObstructedPositions(diversionObstructions);
             			nTask.setFleePos(fleePos);
-            			Log.log("computing fleePath");
 
             			LinkedList<Position> fleePath = shPathFinder.getPathToPos(ship, fleePos, gameMap);
             			if(!fleePath.isEmpty()) {
                 			nTask.setFleePath(fleePath);
             			} else {
-                			Log.log("fleePath empty :(");
 
             			}
-                    	Move move = nTask.computeMove();
-            			if(move != null) {
-            				ThrustMove tm = (ThrustMove) move;
-        					Position thisExpectedPos = tm.getExpectedPosition(ship);
-        					//currentHitmap[expectedX][expectedY] = true;
-        					myExpectedPositions.add(new Entity(-1, -1, thisExpectedPos.getXPos(), thisExpectedPos.getYPos(), 10, Constants.FORECAST_FUDGE_FACTOR));
-        					
-            				moveList.add(move);
-            				Log.log("Ship: " + ship.getId() + " setting move (new, "+ nTask.getType().toString() +" ). \n");
-                        	newTasks.put(ship.getId(), nTask);
-            			}
-            			
-                	}
-					break;
-				case AttackAny:
-					Ship targetShip = getNearestEnemyShip(ship, entities_by_dist, gameMap);
-                	if(targetShip != null) {
-                    	nTask = new Task(ship, gameMap, TaskType.AttackAny, targetShip);
-                    	nTask.setObstructedPositions(myExpectedPositions);
+            		} else {
+                    	nTask.setObstructedPositions(obstructedPositions);
 
-                    	if(expectedPositions.containsKey(targetShip.getId())) {
-                    		Position estPos = expectedPositions.get(targetShip.getId());
-                    		nTask.setEstimatedPos(estPos);
-                    		LinkedList<Position> shpath = shPathFinder.getPathToPos(ship, estPos, gameMap);
-            				if(!shpath.isEmpty()) {
-            					nTask.setPath(shpath);
-            				}
-            			} else {
-            				LinkedList<Position> shpath = shPathFinder.getPathToPos(ship, targetShip, gameMap);
-            				if(!shpath.isEmpty()) {
-            					nTask.setPath(shpath);
-            				}
-
-            			}
-                    	Move move = nTask.computeMove();
-            			if(move != null) {
-            				ThrustMove tm = (ThrustMove) move;
-        					Position thisExpectedPos = tm.getExpectedPosition(ship);
-        					//currentHitmap[expectedX][expectedY] = true;
-        					myExpectedPositions.add(new Entity(-1, -1, thisExpectedPos.getXPos(), thisExpectedPos.getYPos(), 10, Constants.FORECAST_FUDGE_FACTOR_S));
-        					
-            				moveList.add(move);
-            				Log.log("Ship: " + ship.getId() + " setting move (new, "+ nTask.getType().toString() +" ). \n");
-                        	newTasks.put(ship.getId(), nTask);
-            			}
-                	}
-					break;
-				case Expand:
-					Planet targetEPlanet = findBestPlanet(ship, entities_by_dist, true, myId, targetedPlanets, range);
-            		if(targetEPlanet != null) {
-            			int tepid = targetEPlanet.getId();
-            			if(targetedPlanets.containsKey(tepid)) {
-                			targetedPlanets.put(tepid, targetedPlanets.get(tepid)+1);
-            			} else {
-                			targetedPlanets.put(tepid, 1);
-            			}
-                    	nTask = new Task(ship, gameMap, TaskType.Expand, targetEPlanet);
-                    	nTask.setObstructedPositions(myExpectedPositions);
-
-        				LinkedList<Position> shpath = shPathFinder.getPathToPlanet(ship, targetEPlanet);
-        				if(!shpath.isEmpty()) {
-        					nTask.setPath(shpath);
-        				}
-
-                    	Move move = nTask.computeMove();
-            			if(move != null) {
-            				if(move instanceof ThrustMove) {
-                				ThrustMove tm = (ThrustMove) move;
-            					Position thisExpectedPos = tm.getExpectedPosition(ship);
-            					//currentHitmap[expectedX][expectedY] = true;
-            					myExpectedPositions.add(new Entity(-1, -1, thisExpectedPos.getXPos(), thisExpectedPos.getYPos(), 10, Constants.FORECAST_FUDGE_FACTOR_S));
-            					
-            				}
-            				moveList.add(move);
-            				Log.log("Ship: " + ship.getId() + " setting move (new, "+ nTask.getType().toString() +" ). \n");
-
-                        	newTasks.put(ship.getId(), nTask);
-            			}
-                	}
-					break;
-				case Reinforce:
-					Planet targetRPlanet = findBestPlanet(ship, entities_by_dist, false, myId, targetedPlanets, range);
-            		if(targetRPlanet != null) {
-            			int repid = targetRPlanet.getId();
-            			if(targetedPlanets.containsKey(repid)) {
-                			targetedPlanets.put(repid, targetedPlanets.get(repid)+1);
-            			} else {
-                			targetedPlanets.put(repid, 1);
-            			}
-            			
-                    	nTask = new Task(ship, gameMap, TaskType.Reinforce, targetRPlanet);
-                    	nTask.setObstructedPositions(myExpectedPositions);
-
-        				LinkedList<Position> shpath = shPathFinder.getPathToPlanet(ship, targetRPlanet);
-        				if(!shpath.isEmpty()) {
-        					nTask.setPath(shpath);
-        				}
-                    	Move move = nTask.computeMove();
-            			if(move != null) {
-            				if(move instanceof ThrustMove) {
-                				ThrustMove tm = (ThrustMove) move;
-            					Position thisExpectedPos = tm.getExpectedPosition(ship);
-            					//currentHitmap[expectedX][expectedY] = true;
-            					myExpectedPositions.add(new Entity(-1, -1, thisExpectedPos.getXPos(), thisExpectedPos.getYPos(), 10, Constants.FORECAST_FUDGE_FACTOR_S));
-            					
-            				}
-            				moveList.add(move);
-            				Log.log("Ship: " + ship.getId() + " setting move (new, "+ nTask.getType().toString() +" ). \n");
-
-                        	newTasks.put(ship.getId(), nTask);
-            			}
-                	}
-					break;
-				case Dock:
-					break;				
-				case Conquer:
-					Ship targetCShip = findBestEnemyShip(ship, entities_by_dist, gameMap, range);
-                	if(targetCShip != null) {
-                    	nTask = new Task(ship, gameMap, TaskType.AttackAny, targetCShip);
-                    	nTask.setObstructedPositions(myExpectedPositions);
-
-                    	if(expectedPositions.containsKey(targetCShip.getId())) {
-                    		Position estPos = expectedPositions.get(targetCShip.getId());
-                    		nTask.setEstimatedPos(estPos);
-            				LinkedList<Position> shpath = shPathFinder.getPathToPos(ship, estPos, gameMap);
-            				if(!shpath.isEmpty()) {
-            					nTask.setPath(shpath);
-            				}
-
-            			} else {
-            				LinkedList<Position> shpath = shPathFinder.getPathToPos(ship, targetCShip, gameMap);
-            				if(!shpath.isEmpty()) {
-            					nTask.setPath(shpath);
-            				}
-
-            			}
-                    	Move move = nTask.computeMove();
-            			if(move != null) {
-                			ThrustMove tm = (ThrustMove) move;
-            				Position thisExpectedPos = tm.getExpectedPosition(ship);
-            				//currentHitmap[expectedX][expectedY] = true;
-            				myExpectedPositions.add(new Entity(-1, -1, thisExpectedPos.getXPos(), thisExpectedPos.getYPos(), 10, Constants.FORECAST_FUDGE_FACTOR_S));
-
-            				moveList.add(move);
-            				Log.log("Ship: " + ship.getId() + " setting move (new, "+ nTask.getType().toString() +" ). \n");
-                        	newTasks.put(ship.getId(), nTask);
-            			}
-                	}
-				case Defensive:
-				default:
-					break;
-            	
+            		}
             	}
-            	
+            	//Log.log("MBmain: computeMove"); 
+
+            	move = nTask.computeMove();
+    			if(move != null) {
+    				if(move instanceof ThrustMove) {
+        				ThrustMove tm = (ThrustMove) move;
+    					Position thisExpectedPos = tm.getExpectedPosition(ship);
+    					//currentHitmap[expectedX][expectedY] = true;
+    					myShipPositions.add(new Entity(-1, -1, thisExpectedPos.getXPos(), thisExpectedPos.getYPos(), 10, Constants.FORECAST_FUDGE_FACTOR_S));
+    					diversionObstructions.add(new Entity(-1, -1, thisExpectedPos.getXPos(), thisExpectedPos.getYPos(), 10, Constants.FORECAST_FUDGE_FACTOR_S));
+    				}
+
+    				moveList.add(move);
+    				//Log.log("Ship: " + ship.getId() + " setting move (new, "+ nTask.getType().toString() +" ). \n");
+                	newTasks.put(ship.getId(), nTask);
+    			}
 
             }
             /*
@@ -514,217 +488,10 @@ public class ModifiedBot {
         	*/
             tasks = newTasks;
 //            rounds++;
-            controller.initNextRound();
             Networking.sendMoves(moveList);
         }
     }
-	/*
-	static private Move offensiveBehavior(Ship thisShip, Map<Double, Entity> dist_sorted_entities, GameMap gameMap) {
-        //final ThrustMove newThrustMove = Navigation.navigateShipToDock(gameMap, ship, planet, Constants.MAX_SPEED/2);
-		for(Map.Entry<Double,Entity> targetEntity : dist_sorted_entities.entrySet()) {
-			  if(targetEntity.getValue() instanceof Ship) {
-				  Ship targetShip = (Ship) targetEntity.getValue();
-				  if(targetShip.getOwner() != gameMap.getMyPlayerId()) { //none of my own ships
-					  if(thisShip.getDistanceTo(targetShip) <= Constants.WEAPON_RADIUS + 1) {
-						  return Navigation.navigateShipToClosestPoint(gameMap, thisShip, targetShip, Constants.MAX_SPEED/2);
-					  } else {
-						  return Navigation.navigateShipToClosestPoint(gameMap, thisShip, targetShip, (int)(Constants.MAX_SPEED * 0.9));
-					  }
-				  }
-			  }
-		}
 
-		return null;
-	}
-	
-	
-	static private Move defensiveBehavior(Ship thisShip, Map<Double, Entity> dist_sorted_entities, GameMap gameMap, boolean prioritizeUnowned, ArrayList<Planet> targeted, double range) {
-		Planet targetPlanet = findBestPlanet(thisShip, dist_sorted_entities, prioritizeUnowned, gameMap.getMyPlayerId(), targeted, range);
-		if(targetPlanet != null) {
-			Log.log("Ship " + thisShip.getId() + ": (move to planet) -> " + targetPlanet.getId() +" \n");
-			return moveToPlanet(thisShip, targetPlanet, gameMap);
-		}
-		return offensiveBehavior(thisShip, dist_sorted_entities, gameMap); //no free planet
-	}
-	
-
-	
-	static private Move moveToPlanet(Ship thisShip, Planet targetPlanet, GameMap gameMap) {
-		if (thisShip.canDock(targetPlanet)) {
-			return new DockMove(thisShip, targetPlanet);
-		} else {
-			return Navigation.navigateShipToClosestPoint(gameMap, thisShip, targetPlanet, Constants.MAX_SPEED);
-		}
-	}	*/
-	
-	static private Ship getNearestEnemyShip	(Ship thisShip, Map<Double,Entity> dist_sorted_entities, GameMap gameMap) {
-		for(Map.Entry<Double,Entity> targetEntity : dist_sorted_entities.entrySet()) {
-			  if(targetEntity.getValue() instanceof Ship) {
-				  Ship targetShip = (Ship) targetEntity.getValue();
-				  if(targetShip.getOwner() != gameMap.getMyPlayerId()) {
-					  return targetShip;
-				  }
-			  }
-		}
-		return null;
-	}
-	
-	
-	static private Ship findBestEnemyShip(Ship thisShip, Map<Double, Entity> dist_sorted_entities, GameMap gameMap, double range){
-		
-		Ship bestTarget = null;
-		boolean bestTargetSet = false;
-		boolean bestTargetDocks = false;
-
-		double min_range = 2*distanceUnit + range;
-		
-		for(Map.Entry<Double,Entity> targetEntity : dist_sorted_entities.entrySet()) {
-			if(targetEntity.getValue() instanceof Ship) {
-				  Ship targetShip = (Ship) targetEntity.getValue();
-				  
-				  if(targetShip.getOwner() == gameMap.getMyPlayerId()) { //not a planet to dock on
-					  continue; 
-				  }
-				  
-				  if(!bestTargetSet) { //nothing to compare yet, init bestAnyPlanet
-					  bestTarget = targetShip;
-					  bestTargetSet = true;
-					  min_range = Math.max(thisShip.getDistanceTo(bestTarget), min_range);
-					  //logstr += "a_range = " + min_a_range;
-					  //logstr += " (n=" + targetPlanet.getDistanceTo(thisShip) + "/" + targetPlanet.getRadius() +") -> pl:" + targetPlanet.getId() + " /// ";
-
-					  continue;
-				  } else { //out of searching range
-					  if(thisShip.getDistanceTo(targetShip) > min_range + (2*distanceUnit + range)) {
-						  break;
-					  }
-				  }
-				  
-				  DockingStatus dock_status = targetShip.getDockingStatus();
-				  if(dock_status == DockingStatus.Docked || dock_status == DockingStatus.Docking) {
-					  if(bestTargetDocks) {
-						  Planet dockedPlanet = gameMap.getPlanet(targetShip.getDockedPlanet());
-						  Planet lastDockedPlanet = gameMap.getPlanet(bestTarget.getDockedPlanet());
-						  if(lastDockedPlanet == null) {
-							  if(dockedPlanet == null) {
-								  continue; //both ships equal, prefer previous (closer) ship
-							  } else {
-								  bestTarget = targetShip; //current ship is docked to a planet -> better target
-							  }
-							  
-						  } else { //both ships docked to a planet
-							  if(dockedPlanet != null && dockedPlanet.getRadius() > lastDockedPlanet.getRadius()) {
-								  bestTarget = targetShip;
-							  }
-						  }
-
-					  }
-					  else {
-						  bestTargetDocks = true;
-						  bestTarget = targetShip;
-					  }
-				  }
-
-				  				  
-			}
-
-		}
-				
-		return bestTarget;
-	}
-
-
-	static private Planet findBestPlanet(Ship thisShip, Map<Double, Entity> dist_sorted_entities, boolean prioritizeUnowned, int myId, HashMap<Integer, Integer> targetedFreePlanets, double range){
-		//String logstr;
-		if(prioritizeUnowned) {
-			//logstr = "Ship " + thisShip.getId() + ": (ufind)"; //debug
-
-		} else {
-			//logstr = "Ship " + thisShip.getId() + ": (find)"; //debug
-		}
-
-		
-		Planet bestAnyPlanet = null;
-		Planet bestUnownedPlanet = null;
-		boolean anyPlSet = false;
-		boolean unownedPlSet = false;
-		
-		double min_a_range = 2*distanceUnit + range;
-		double min_u_range = 2*distanceUnit + range;
-
-		for(Map.Entry<Double,Entity> targetEntity : dist_sorted_entities.entrySet()) {
-			if(targetEntity.getValue() instanceof Planet) {
-				  Planet targetPlanet = (Planet) targetEntity.getValue();
-				  int targets = 0;
-				  if(targetedFreePlanets.containsKey(targetPlanet.getId())) {
-					  targets = targetedFreePlanets.get(targetPlanet.getId());
-
-				  }
-				  
-				  if((targetPlanet.isOwned() && targetPlanet.getOwner() != myId) || targetPlanet.isFull()) { //not a planet to dock on
-					  continue; 
-				  }
-				  
-				  if(!anyPlSet) { //nothing to compare yet, init bestAnyPlanet
-					  bestAnyPlanet = targetPlanet;
-					  anyPlSet = true;
-					  min_a_range = Math.max(thisShip.getDistanceTo(targetPlanet), min_a_range);
-					  //logstr += "a_range = " + min_a_range;
-					  //logstr += " (n=" + targetPlanet.getDistanceTo(thisShip) + "/" + targetPlanet.getRadius() +") -> pl:" + targetPlanet.getId() + " /// ";
-
-					  
-					  if(!targetPlanet.isOwned() && prioritizeUnowned && targets==0) { // init bestUnownedPlanet
-						  
-						  bestUnownedPlanet = targetPlanet;
-						  unownedPlSet = true;
-						  min_u_range = min_a_range;
-						  //logstr += "u_range = " + min_a_range;
-						  //logstr += " (n=" + targetPlanet.getDistanceTo(thisShip) + "/" + targetPlanet.getRadius() +") -> upl:" + targetPlanet.getId() + " /// ";
-					  }
-					  continue;
-				  }
-				  
-
-				  double thisPlDist = thisShip.getDistanceTo(targetPlanet);
-				  double thisPlRadius = targetPlanet.getRadius();
-				  
-				  if(thisPlRadius > bestAnyPlanet.getRadius() * 1.1 && thisPlDist < min_a_range + 2*distanceUnit + range && targets <targetPlanet.getRemainingProduction()-1) {
-					  bestAnyPlanet = targetPlanet;
-					  //logstr += "=>(b=" + targetPlanet.getDistanceTo(thisShip) + "/" + targetPlanet.getRadius() +") -> pl:" + targetPlanet.getId() + " /// ";
-
-				  }
-				  
-				  if(prioritizeUnowned && !targetPlanet.isOwned() && targets== 0) {
-					  if(!unownedPlSet) {
-						  bestUnownedPlanet = targetPlanet;
-						  unownedPlSet = true;
-						  min_u_range = Math.max(thisShip.getDistanceTo(targetPlanet), min_u_range);
-						  //logstr += "u_range = " + min_a_range;
-						  //logstr += " (n=" + targetPlanet.getDistanceTo(thisShip) + "/" + targetPlanet.getRadius() +") -> upl:" + targetPlanet.getId() + " /// ";
-						  
-					  } else {
-						  
-						  //equivalent computation as with bestAnyPlanet
-						  if(thisPlRadius > bestUnownedPlanet.getRadius() * 1.1 && thisPlDist < min_u_range + 2*distanceUnit + range && targets <targetPlanet.getRemainingProduction()-1) {
-							  bestUnownedPlanet = targetPlanet;
-							  //logstr += "=>(b=" + targetPlanet.getDistanceTo(thisShip) + "/" + targetPlanet.getRadius() +") -> upl:" + targetPlanet.getId() + " /// ";
-						  }
-						  
-					  }
-				  }
-				  
-			}
-
-		}
-		
-//		logstr += "\n";
-		//Log.log(logstr);
-		if(prioritizeUnowned && unownedPlSet) {
-			return bestUnownedPlanet;
-		}
-				
-		return bestAnyPlanet; //may be null -> all Planets owned by someone else
-	}
 	
 	static HashMap<Integer, Position> listEnemyShipPositions(GameMap gameMap){
 		HashMap<Integer, Position> shipPositions = new HashMap<>();
@@ -749,7 +516,7 @@ public class ModifiedBot {
     }
     
     static boolean[][] createHitmap(GameMap gameMap, double fudge){
-		Log.log(" ##### creating hitmap ##### ");
+		//Log.log(" ##### creating hitmap ##### ");
 
     	int gm_width = gameMap.getWidth();
         int gm_height = gameMap.getHeight();
@@ -781,7 +548,7 @@ public class ModifiedBot {
 
     static boolean[][] updateHitmap(boolean[][] hitmap, Map<Integer,Planet> previousPlanets, Map<Integer, Planet> currentPlanets, int numDestroyedPlanets, double fudge){    	
     	int planetsToRemove = numDestroyedPlanets;
-		Log.log(" ##### updating hitmap ##### ");
+		//Log.log(" ##### updating hitmap ##### ");
 
     
     	boolean[][] updatedHitmap = hitmap;
@@ -815,7 +582,7 @@ public class ModifiedBot {
 
     static ShadowPathFinder updateShadowPathFinder(ShadowPathFinder spf, Map<Integer,Planet> previousPlanets, Map<Integer, Planet> currentPlanets, int numDestroyedPlanets){    	
     	int planetsToRemove = numDestroyedPlanets;
-		Log.log(" ##### updating shadowpathfinder ##### ");
+		//Log.log(" ##### updating shadowpathfinder ##### ");
 
             for(Map.Entry<Integer, Planet> prEntry : previousPlanets.entrySet()) {
     		if(!currentPlanets.containsKey(prEntry.getKey())) {
@@ -882,7 +649,9 @@ public class ModifiedBot {
     	int highestId = 0;
     	int highestScore = 0;
     	int thisScore;
+    	//String fleePosScores = "fleepos scores: ";
     	for(int i = 0; i < 4; i++) {
+    		// += spaces[i] + " ";
     		thisScore = spaces[i];
 
     		if(thisScore > highestScore) {
@@ -890,25 +659,11 @@ public class ModifiedBot {
     			highestId = i;
     		}
     	}
-    	
+    	//Log.log(fleePosScores + " found corner: " + corners[highestId].toString());
     	return corners[highestId];
     	
     	
     }
-    
-    
-    static Task createTask(Ship ship, GameMap gameMap, Control gameStatus) {
-		return null;
-    	
-    }
-	
-    //computes a "local" priority for ships
-    static Task getLocalPriority(Ship ship, GameMap gameMap, Control gameStatus) {
-    	//TODO
-		return null;
-    	
-    }
- 
 
 
     

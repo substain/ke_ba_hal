@@ -9,18 +9,29 @@ import java.util.Map.Entry;
 public class ShadowPathFinder {
 	
 	HashMap<Integer, ShadowTreeNode> shadowMap;
-	
+	double maxPlanetSize;
 	
 	public ShadowPathFinder(GameMap gmap) {
 		shadowMap = new HashMap<>();
 		parsePlanets(gmap);
-		Log.log("parsing planets complete");
+		//Log.log("parsing planets complete");
 	}
 	
-	public void parsePlanets(GameMap gmap) {
+	public double getMaxPlanetSize() {
+		return maxPlanetSize;
+	}
+	
+	private void parsePlanets(GameMap gmap) {
+		maxPlanetSize = 0;
+		
 		Map<Integer, Planet> allPlanets = gmap.getAllPlanets();
 		for(Map.Entry<Integer,Planet> sourceEntry : allPlanets.entrySet()) {
 			Planet sourcePlanet = sourceEntry.getValue();
+			
+			if(sourcePlanet.getRadius() > maxPlanetSize) {
+				maxPlanetSize = sourcePlanet.getRadius();
+			}
+			
 			//create ShadowTreeNode
 			ShadowTreeNode stnRoot = new ShadowTreeNode(sourcePlanet);
 			//and fill this node

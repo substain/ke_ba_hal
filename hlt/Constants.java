@@ -10,6 +10,11 @@ public class Constants {
 
     /** Max number of units of distance a ship can travel in a turn */
     public static final int MAX_SPEED = 7;
+    
+    
+    public static final int NAV_CRIT = 10;
+
+    public static final double FLY_RANGE = MAX_SPEED * 2;
 
     /** Radius of a ship */
     public static final double SHIP_RADIUS = 0.5;
@@ -49,8 +54,13 @@ public class Constants {
     // Implementation-specific constants
 
     public static final double FORECAST_FUDGE_FACTOR = SHIP_RADIUS + 0.1;
-    public static final double FORECAST_FUDGE_FACTOR_S = SHIP_RADIUS + 0.3;
-    public static final int MAX_NAVIGATION_CORRECTIONS = 90;
+    public static final double FORECAST_FUDGE_FACTOR2 = SHIP_RADIUS + 0.4;
+
+    public static final double FORECAST_FUDGE_FACTOR_S = FORECAST_FUDGE_FACTOR2;
+    public static final double FORECAST_FUDGE_FACTOR_DIV = SHIP_RADIUS * 10;
+
+    //old: 90
+    public static final int MAX_NAVIGATION_CORRECTIONS = 80;
 
     /**
      * Used in Position.getClosestPoint()

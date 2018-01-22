@@ -71,7 +71,7 @@ public class ShadowTreeNode {
         dist = source.getDistanceTo(target);
         final double stRad = source.orientTowardsInRad(target);
        
-        final double rfdist = target.getRadius() + Constants.FORECAST_FUDGE_FACTOR;
+        final double rfdist = target.getRadius() + Constants.FORECAST_FUDGE_FACTOR2;
         final double tLERad = stRad + HALF_PI; //orientation from target center to left "edge"
         
         final double LEdx = Math.cos(tLERad + angularStepRad) * rfdist;

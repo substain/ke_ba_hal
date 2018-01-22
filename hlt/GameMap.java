@@ -100,18 +100,25 @@ public class GameMap {
     }
     
     public ArrayList<Entity> objectsBetween2(Position start, Position target, ArrayList<Entity> obstructedPos) {
-        final ArrayList<Entity> entitiesFound = new ArrayList<>();
+    	//Log.log("GameMap: checking: objectsBetween2");
 
+        final ArrayList<Entity> entitiesFound = new ArrayList<>();
+    	for(Entity ent : obstructedPos) {
+    		//Log.log("objbetw2: e=" + ent.getXPos() + "/" + ent.getYPos() + ", r=" + ent.getRadius());
+    	}
+      
         addEntitiesBetween(entitiesFound, start, target, planets.values());
         if(!obstructedPos.isEmpty()) {
+        	//Log.log("obstructed Pos not empty!");
             addEntitiesBetween(entitiesFound, start, target, obstructedPos);
+        } else {
+        	//Log.log("obstructed Pos is empty!");
         }
         addEntitiesBetween(entitiesFound, start, target, allShips);
 
         return entitiesFound;
     }
-    
-  
+
 
     private static void addEntitiesBetween(final List<Entity> entitiesFound,
                                            final Position start, final Position target,

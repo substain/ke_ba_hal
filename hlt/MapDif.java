@@ -1,10 +1,31 @@
 package hlt;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 
 public class MapDif {
 	
+	//attribute indices
+	public static final int NUM_MAPDIF_ATTS = 11; //these atts will be mapped from 0 .. 1  to  -0.5 .. 0.5
+	
+	//for changes in myOwnedPlanets/allOwnedPlanets
+	public static final int MOP_CH_EXP = 0;
+	public static final int MOP_CH_REI = 1;
+	public static final int MOP_CH_ATT = 2;
+	public static final int MOP_CH_CON = 3;
+	public static final int MOP_CH_DIV = 4;
+
+	//for changes when allOwnedPlanets/alPlanets is over a threshold
+
+	public static final int OPOT_CH_EXP = 5;
+	public static final int OPOT_CH_REI = 6;
+	public static final int OPOT_CH_ATT = 7;
+	public static final int OPOT_CH_CON = 8;
+	public static final int OPOT_CH_DIV = 9;
+	
+	public static final int OPOT_THRESH_V = 10;
+
 	public static final int NUM_INFO_VARS = 5;
 	
 	public static final int ALL_PLANETS = 0;
@@ -15,9 +36,9 @@ public class MapDif {
 	
 	public static final int NUM_PERC_VARS = 3;
 
-	public static final int OWNEDPLANETS_PERC = 0;
-	public static final int MYSHIPS_PERC = 1;
-	public static final int MYPLANETS_PERC = 2;
+	public static final int OWNEDPLANETS_PERC = 0; //OWNEDPLANETS/ALLPLANETS
+	public static final int MYSHIPS_PERC = 1; //MYSHIPS/ENEMYSHIPS
+	public static final int MYPLANETS_PERC = 2; //MYPLANETS/ALLPLANETS
 
 	//Planets
 
@@ -31,7 +52,12 @@ public class MapDif {
 
 	int[] shipsPerId;
 	int[] shipsPIDif;
+	
+	int strongestEnemyPlayerID;
+	int weakestEnemyPlayerID;
 
+	
+	HashSet<Integer> activeShips;
 	//Ships
 	
 	
@@ -60,14 +86,19 @@ public class MapDif {
 
 	public void update(GameMap gameMap, boolean init) {
 
-
 		List<Ship> ships = gameMap.getAllShips();
 		Map<Integer, Planet> planets = gameMap.getAllPlanets();
+		activeShips = new HashSet<>();
+
+
 		if(!init) {
-			infoDif = info;
-			planetsPIDif = planetsPerId;
-			shipsPIDif = shipsPerId;
-			percDif = percentages;
+			System.arraycopy(planetsPerId, 0, planetsPIDif, 0, planetsPerId.length);
+			System.arraycopy(info, 0, infoDif, 0, info.length);
+			
+			System.arraycopy(shipsPerId, 0, shipsPIDif, 0, shipsPerId.length);
+			
+			System.arraycopy(percentages, 0, percDif, 0, percentages.length);
+
 		}
 
 		info[ALL_OWNEDPLANETS] = 0;
@@ -85,7 +116,6 @@ public class MapDif {
         	}
         }
 
-
 		info[ALL_ENEMYSHIPS] = 0;
 		info[ALL_SHIPS] = ships.size();
 
@@ -93,14 +123,12 @@ public class MapDif {
         	shipsPerId[s.getOwner()] ++;
 
         	if(s.getOwner() != myId) {
+        		activeShips.add(s.getId());
         		info[ALL_ENEMYSHIPS]++;
         	}
         }
-		Log.log("MDif: update, ");
-		
 
 	    percentages[OWNEDPLANETS_PERC] = (double) info[ALL_OWNEDPLANETS] / (double)info[ALL_PLANETS];
-		
         percentages[MYSHIPS_PERC] = (double) shipsPerId[myId]/ (double)info[ALL_SHIPS];
 
         if(info[ALL_OWNEDPLANETS] != 0) {
@@ -109,10 +137,9 @@ public class MapDif {
         	percentages[MYPLANETS_PERC] = 0;
         }
 
-		Log.log("MDif: update, test 3");
-
-        if(!init) { // the _Div ints store the old size
+        if(!init) { // the _Dif arrays store the old size
         	for(int i = 0; i < infoDif.length;i++) {
+
     			infoDif[i] = info[i] - infoDif[i];
         	}
         	for(int i = 0; i < planetsPIDif.length;i++) {
@@ -123,6 +150,7 @@ public class MapDif {
         	}
         	for(int i = 0; i < percDif.length;i++) {
         		percDif[i] = percentages[i] - percDif[i];
+
         	}
         } else {
         	for(int i = 0; i < infoDif.length;i++) {
@@ -138,7 +166,35 @@ public class MapDif {
         		percDif[i] = 0.0;
         	}
         }
+        
+        if(myId == 0) {
+        	strongestEnemyPlayerID = 1;
+        	weakestEnemyPlayerID = 1;
+        } else {
+        	strongestEnemyPlayerID = 0;
+        	weakestEnemyPlayerID = 0;
+        }
+
+    	
+        for(int i = 0; i < shipsPerId.length; i++) {
+        	if(i == myId) {
+        		continue;
+        	}
+        	if(shipsPerId[strongestEnemyPlayerID] < shipsPerId[i]) {
+        		strongestEnemyPlayerID = i;
+        	}
+        	if(shipsPerId[strongestEnemyPlayerID] < shipsPerId[i]) {
+        		strongestEnemyPlayerID = i;
+        	}
+        }
+        
+        //printAll();
 	}
+	
+	public HashSet<Integer> getMyActiveShips(){
+		return activeShips;
+	}
+	
 	
 	public int getBestShipPlayerId() {
     	
@@ -226,6 +282,9 @@ public class MapDif {
 	public int getInfoDif(int index) {
 		return infoDif[index];
 	}
+	public double getPerc(int index) {
+		return percentages[index];
+	}
 	public double getPercDif(int index) {
 		return percDif[index];
 	}
@@ -235,4 +294,74 @@ public class MapDif {
 	public int getMyShipDif() {
 		return shipsPIDif[myId];
 	}
+
+	public void printAll() {
+		Log.log("MapDif:printAll : ");
+		
+
+    	for(int i = 0; i <  shipsPerId.length; i++) {
+    		Log.log("ships of " +i+":" +shipsPerId[i]);
+    	}
+    	for(int i = 0; i <  shipsPIDif.length; i++) {
+    		Log.log("ships of " +i+" dif:" +shipsPIDif[i]);
+    	}
+    	
+    	for(int i = 0; i <  percentages.length; i++) {
+    		Log.log("percentages " +i+":" +percentages[i]);
+    	}
+    	for(int i = 0; i < percDif.length; i++) {
+    		Log.log("percDif " +i+":" +percDif[i]);
+    	}
+
+    	
+    	for(int i = 0; i <  planetsPerId.length; i++) {
+    		Log.log("planets of " +i+":" +planetsPerId[i]);
+    	}
+    	for(int i = 0; i <  planetsPIDif.length; i++) {
+    		Log.log("planetsPIDif " +i+":" +planetsPIDif[i]);
+    	}    
+    	
+    	for(int i = 0; i <  info.length; i++) {
+    		Log.log("info " +i+":" +info[i]);
+    	}    
+
+    	for(int i = 0; i <  infoDif.length; i++) {
+    		Log.log("infoDif " +i+":" +infoDif[i]);
+    	}    
+    	
+
+	}
+	
+	public int getStrongestEnemyPlID() {
+		return strongestEnemyPlayerID;
+	}
+	
+	public int getWeakestEnemyPlID() {
+		return weakestEnemyPlayerID;
+		
+	}
+
+	
+	public static String mapDifAttString(int id) {
+	    switch(id) {
+	      case MOP_CH_EXP: return "[myOwnedPlanets change expand]";
+	      case MOP_CH_REI: return "[myOwnedPlanets change reinforce]"; 
+	      case MOP_CH_ATT: return "[myOwnedPlanets change attack]";
+	      case MOP_CH_CON: return "[myOwnedPlanets change conquer]";
+	      case MOP_CH_DIV: return "[myOwnedPlanets change diversion]";
+	      
+	      case OPOT_CH_EXP: return "[ownedPlanetsOverThreshold change expand]";
+	      case OPOT_CH_REI: return "[ownedPlanetsOverThreshold change reinforce]";
+	      case OPOT_CH_ATT: return "[ownedPlanetsOverThreshold change attack]";
+	      case OPOT_CH_CON: return "[ownedPlanetsOverThreshold change conquer]";
+	      case OPOT_CH_DIV: return "[ownedPlanetsOverThreshold change diversion]";
+	      
+	      case OPOT_THRESH_V: return "[ownedPlanetsOverThreshold value]";
+
+	      default: return "[attack]";
+	    }
+	}
+	  
+
+
 }

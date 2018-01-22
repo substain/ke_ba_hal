@@ -3,10 +3,8 @@ package hlt;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.Map;
-import java.util.TreeMap;
 
 import hlt.Ship.DockingStatus;
-import hlt.Task.TaskType;
 
 public class Task {
 	
@@ -70,7 +68,7 @@ public class Task {
 	}
 	
 	public void setEstimatedPos(Position estimatedPosition) {
-		estimatedPos = estimatedPosition;
+			estimatedPos = estimatedPosition;
 	}
 	public void setFleePos(Position fleePosition) {
 		fleePos = fleePosition;
@@ -90,8 +88,8 @@ public class Task {
 				obstructedPositions.add(new Entity(-1, -1, estimatedPos.getXPos(), estimatedPos.getYPos(), 10, Constants.SHIP_RADIUS));
 			}
 			Ship tShip = (Ship) target;
-			double safetyZone = Constants.WEAPON_RADIUS * 1.8;
-			double midRangeZone = Constants.WEAPON_RADIUS * 2.5;
+			double safetyZone = Constants.WEAPON_RADIUS * 2;
+			double midRangeZone = Constants.WEAPON_RADIUS * 3;
 			double distToShip = thisShip.getDistanceTo(target);
 			Position estPos;
 			if(estimatedPos != null) {
@@ -100,37 +98,36 @@ public class Task {
 				estPos = tShip;
 			}
 			if(distToShip > safetyZone && thisShip.getDistanceTo(estPos) > safetyZone) {
-				if(distToShip > midRangeZone) {
-					speed -= 2;
+				if(distToShip <= midRangeZone) {
+					speed -= 1;
 				}
 				if(!needsPath) {
-					Log.log("Diversion: hasPath, towardsTarget");
+					//Log.log("Diversion: hasPath, towardsTarget");
 					move = Navigation.navigateShipTowardsPathTarget(gameMap, thisShip, tShip, speed, path.getFirst(),obstructedPositions);
 				} else {
-					Log.log("Diversion: noPath, towardsTarget");
+					//Log.log("Diversion: noPath, towardsTarget");
 
 					move = Navigation.navigateShipToClosestPoint(gameMap, thisShip, tShip, speed, obstructedPositions);
 				}
 			} else {
 				if(!needsFleePath) {
-					Log.log("Diversion: hasFleePath, away");
+					//Log.log("Diversion: hasFleePath, away");
 
 					move = Navigation.navigateShipTowardsPathTarget(gameMap, thisShip, fleePos, speed, fleePath.getFirst(),obstructedPositions);
 				} else {
-					Log.log("Diversion: noFleePath, away");
+					//Log.log("Diversion: noFleePath, away");
 					move = Navigation.navigateShipToPoint(gameMap, thisShip, fleePos, speed, obstructedPositions);
 				}
 			}
 			//TODO
 			break;
-		case Defensive:
-			//TODO
-			//break;
+
 		case Conquer:
 			Ship ctargetShip = (Ship) target;
+			double distToCTarget = thisShip.getDistanceTo(ctargetShip);
 
-			if(thisShip.getDistanceTo(ctargetShip) <= Constants.WEAPON_RADIUS + 2) {
-				speed -= 2;
+			if(distToCTarget <= Constants.WEAPON_RADIUS) {
+				speed = (int)((Constants.WEAPON_RADIUS)-distToCTarget);		
 			}
 			if(!needsPath) {
 				move = Navigation.navigateShipTowardsPathTarget(gameMap, thisShip, ctargetShip, speed, path.getFirst(),obstructedPositions);
@@ -145,8 +142,8 @@ public class Task {
 			if(estimatedPos != null) {
 				obstructedPositions.add(new Entity(-1, -1, estimatedPos.getXPos(), estimatedPos.getYPos(), 10, Constants.SHIP_RADIUS));
 			}
-			if(distToTarget <= Constants.WEAPON_RADIUS + 2) {
-				speed -= 3;
+			if(distToTarget <= Constants.WEAPON_RADIUS + 1) {
+				speed = (int)((Constants.WEAPON_RADIUS+1)-distToTarget);
 			}
 			if(estimatedPos == null || distToTarget > 20) { //no position given
 				//Log.log("computeMove: navigation to " + targetShip.getXPos() + "|" + targetShip.getYPos() + " with speed " + speed + ", expected pos = " + Navigation.getExpectedPos(thisShip, targetShip, speed));
@@ -210,8 +207,8 @@ public class Task {
 	//	return false;
 	//}
 	
-	public boolean isAttackType() { //also means target is of type ship
-		if(type == TaskType.AttackAny || type == TaskType.Defensive || type == TaskType.Conquer) {
+	public boolean isShipTargetType() { //also means target is of type ship
+		if(type == TaskType.AttackAny || type == TaskType.Diversion || type == TaskType.Conquer) {
 			return true;
 		}
 		return false;
@@ -236,7 +233,7 @@ public class Task {
 		path = newPath;
 		needsPath = false;
 	}
-	
+
 	
 	public void setFleePath(LinkedList<Position> fPath) {
 		fleePath = fPath;
@@ -251,7 +248,7 @@ public class Task {
 		
 		thisShip = currentShip;
 
-		if(isAttackType()) {
+		if(isShipTargetType()) {
 			//Log.log("updating Task, target ship id = " + target.getId());
 
 			target = gameMap.findShip(target.getId());
@@ -281,10 +278,16 @@ public class Task {
 			//Log.log("Task:Invalid ->Target does not exist");
 			return TaskStatus.Invalid;
 		}
+		
+		if(type == TaskType.Diversion) {
+			Ship targetS = (Ship) target; 
+			if(targetS.getDockingStatus() == DockingStatus.Docked || targetS.getDockingStatus() == DockingStatus.Docking)
+				return TaskStatus.Invalid;
+		}
 
 		if(isDockType()){
 			int myId = gameMap.getMyPlayerId();
-
+			
 			
 			if((target.getOwner() != myId && target.getOwner() != -1) || ((Planet)target).isFull()){
 				//Log.log("Task:Invalid -> target planet is not dockable");
@@ -321,28 +324,13 @@ public class Task {
 		return type;
 	}
 	
-	public Position getExpectedPos() {
-		//TODO
-		return null;
-	}
-	
 	public void setObstructedPositions(ArrayList<Entity> myExpectedPositions) {
+		//Log.log("Task.setObstructedPositions:");
+		//for(Entity ent : myExpectedPositions) {
+			//Log.log("E: " + ent.getXPos() + "/" + ent.getYPos() + ", r=" + ent.getRadius());
+		//}
 		obstructedPositions = myExpectedPositions;
 	}
-	/*
-	public boolean isEqualTo(Task compTask) {
-		//TODO
-		//check if the current Task equals compTask
-
-		return false;
-	}
-	
-	public boolean doesNotInterfereWith(Task compTask) {
-		//TODO ?
-		//check if the current objective does not 
-		return true;
-	}
-	*/
 
 	public boolean isDiversion() {
 		if(type == TaskType.Diversion) {
@@ -382,7 +370,14 @@ public class Task {
 		case 4: 
 			return TaskType.Diversion;
 		default:
-			return TaskType.AttackAny;
+			return TaskType.Dock;
 		}
+	}
+
+	public static boolean isControlTask(TaskType tt) {
+		if(getTaskTypeIndex(tt) == -1) {
+			return false;
+		}
+		return true;
 	}
 }

@@ -1,5 +1,6 @@
 #!/bin/sh
 
+javac MyBot1.java
 javac ModifiedBot.java
 
-./halite -s 3271081150  "java ModifiedBot GABot_A0_11" "java ModifiedBot GABot_H2_13" "java ModifiedBot GABot_A0_15" "java ModifiedBot GABot_D3_7"
+./halite "java ModifiedBot GABot_@-1_0" "java ModifiedBot GABot_B2_2" "java ModifiedBot GABot_D2_4" "java ModifiedBot GABot_A1_6"

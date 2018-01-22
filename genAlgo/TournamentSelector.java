@@ -17,6 +17,7 @@ public class TournamentSelector {
 	public static final int NUM_TEST_ARGS = 3;
 	public static final int NUM_CONT_ARGS = 0;
 	public static final int EXT_PLAYER_ARGS = 2;
+	
 
 	int currentRound;
 	ArrayList<String> currentBots;
@@ -78,7 +79,7 @@ public class TournamentSelector {
 		
 		currentBots = GAFileHandler.getBotNames(iteration, batch);
 
-		ArrayList<Match> currentMatches = ioHandler.readMatchup(GAFileHandler.MATCHUP_LAST);
+		ArrayList<Match> currentMatches = ioHandler.readMatchup(GAFileHandler.CURRENT_LINE);
 		currentRound = ioHandler.getMatchupLine();
 		System.out.println("after round = " + currentRound);
 		
@@ -88,7 +89,7 @@ public class TournamentSelector {
 			nextMatches = currentMatches;
 			Match.printMatches(nextMatches);
 			ioHandler.createNextMatchesSh(nextMatches, HaliteGenAlgo.MATCHES_PER_EXT_ROUND, noReplay, safeBots); //uses matchup file
-			System.out.println("tournamentselector: finished this it (initRound)");
+			//System.out.println("tournamentselector: finished this it (initRound)");
 
 			return;
 		}
@@ -97,7 +98,7 @@ public class TournamentSelector {
 		setResults(currentMatches); //creates rankings and writes to the rankings file
 		if(currentRound == (NUM_GA_ROUNDS + NUM_NGA_ROUNDS)-1) {
 			GAFileHandler.clearMatchesSh();
-			System.out.println("tournamentselector: finished this it (final round: " + currentRound + ")");
+			//System.out.println("tournamentselector: finished this it (final round: " + currentRound + ")");
 			return;
 		}
 		if(currentRound >= NUM_NGA_ROUNDS) {
@@ -116,7 +117,7 @@ public class TournamentSelector {
 
 		}
 
-		System.out.println("tournamentselector: finished this it (round: " + currentRound + ")");
+		//System.out.println("tournamentselector: finished this it (round: " + currentRound + ")");
 
 	}
 	
@@ -140,7 +141,7 @@ public class TournamentSelector {
 			return;
 		}
 		winners = new LinkedList<>();
-		System.out.println("setResults: matches.size" + matches.size());
+		//System.out.println("setResults: matches.size" + matches.size());
 		
 		ArrayList<Integer> botIds = getBotIdsByMatches(matches);
 		int numPlayersLastMatch = botIds.size();
@@ -148,16 +149,15 @@ public class TournamentSelector {
 		int numMatchRounds = numPlayersLastMatch/PLAYERS_PER_GAME;
 		int numMatchesPerBot = matches.size() / numMatchRounds;
 		
-		if(currentRound < NUM_NGA_ROUNDS) {	
+		if(currentRound < NUM_NGA_ROUNDS) {	 //TODO
 			numPlayersLastMatch = HaliteGenAlgo.NUM_INDV;
-			numMatchesPerBot = matches.size() / HaliteGenAlgo.NUM_INDV;
+			numMatchesPerBot = matches.size() / (HaliteGenAlgo.NUM_INDV/2);
 			numWinners = HaliteGenAlgo.NUM_INDV;
 		}
 		
 		ArrayList<Double> scores = new ArrayList<>(numPlayersLastMatch);
 
-
-		System.out.println("numMatchesPerBot = " + numMatchesPerBot);
+		//System.out.println("numMatchesPerBot = " + numMatchesPerBot);
 		for(Integer i : botIds) {
 			LinkedList<Double> botScores = GAFileHandler.readBotScores(i, iteration, batch);
 			int botScoresSize = botScores.size();
@@ -169,13 +169,13 @@ public class TournamentSelector {
 			scores.add(HaliteGenAlgo.getAverage(relevantScores));
 		}
 		
-		rankings = createRankings(botIds, scores);
+		rankings = GAFileHandler.createRankings(botIds, scores, GAFileHandler.CURRENT_LINE, HaliteGenAlgo.NUM_INDV);
 		GAFileHandler.addRankings(rankings);
 
 
 		//int rcount = 0;
 		for(Map.Entry<Integer, Integer> me : rankings.entrySet()) {
-			System.out.println("ranking at "+ me.getKey() + " is " + me.getValue());
+			//System.out.println("ranking at "+ me.getKey() + " is " + me.getValue());
 		}
 
 		if(currentRound >= NUM_NGA_ROUNDS && currentRound < (NUM_NGA_ROUNDS+NUM_GA_ROUNDS-1)) { //winners needed
@@ -188,7 +188,7 @@ public class TournamentSelector {
 			}
 		}
 		for(int i = 0; i < winners.size(); i++) {
-			System.out.println("Winner IDS: " + winners.get(i));
+			//System.out.println("Winner IDS: " + winners.get(i));
 		}
 		
 	}
@@ -236,65 +236,12 @@ public class TournamentSelector {
 		}
 		return bots;
 	}
-	private static HashMap<Integer, Integer> createRankings(ArrayList<Integer> botIds, ArrayList<Double> scores){
-		/*
-		 * rankings: is a map of ids, sorted by ranking:
-		 * ranking(key):			0 1 2 3 4 5 6 7..
-		 * corresponding id: 	    5 2 1 7 0 6 3 4
-		 */
-		System.out.println("create rankings: scores = "+ scores.size() + " / botids = "+botIds.size());
 
-		HashMap<Integer, Integer> rankings = new HashMap<>(HaliteGenAlgo.NUM_INDV);
-		ArrayList<ScoreRef> scoreList = new ArrayList<>();
-		for(int i = 0; i < botIds.size(); i++) {
-			//System.out.println("adding to wr: = " + scores.get(i) + "/" +botIds.get(i));
-
-			scoreList.add(new ScoreRef(scores.get(i), botIds.get(i)));
-		}
-		//System.out.println("wr set = " + scoreList.size());
-		Collections.sort(
-				scoreList, 
-				new Comparator<ScoreRef>(){
-		    		public int compare(ScoreRef sr1, ScoreRef sr2){
-		    			return Double.compare(sr1.getScore(), sr2.getScore());
-		    		} 
-		    	}
-		);
-		int wsind = scores.size()-1;
-		for(ScoreRef sr : scoreList) {
-			rankings.put(wsind, sr.getId());
-			//System.out.println("wsind = " + wsind + ", val = " + sr.getId());
-			wsind--;
-
-		}
-		//System.out.println("rankings with winners = " + rankings.size());
-		
-
-		for(int i = 0; i < HaliteGenAlgo.NUM_INDV; i++) {
-			//boolean rankingAdded = false;
-			if(!botIds.contains(i)) { 
-				if(GAFileHandler.getRankOf(i, GAFileHandler.readRankingsLine()) < scores.size()) {
-					System.out.println("createRankings: warning - a winner bot gets overwritten");
-				}
-				rankings.put(GAFileHandler.getRankOf(i, GAFileHandler.readRankingsLine()), i);
-			}
-		}
-		return rankings;
-	}
-	
-	public static int getIndIn(int myId, ArrayList<Integer> targetList) {
-		for(int i = 0; i < targetList.size(); i++) {
-			if(targetList.get(i) == myId) {
-				return i;
-			}
-		}
-		return -1;
-	}
-	
 
 	public static void main(final String[] args) {
 //		GAFileHandler.readBotAttsByName("GABot_A0_0");
 		if(args.length == NUM_INIT_ARGS) {
+			GAFileHandler.clearAllScoresFolder();
 			new TournamentSelector(true);
 		} else if(args.length == NUM_CONT_ARGS) {
 			new TournamentSelector(false);
@@ -325,7 +272,7 @@ public class TournamentSelector {
 			scores.add(0.3);
 			scores.add(2.4);
 
-			HashMap<Integer, Integer> abc = createRankings(botIds,scores);
+			HashMap<Integer, Integer> abc = GAFileHandler.createRankings(botIds,scores,GAFileHandler.CURRENT_LINE, HaliteGenAlgo.NUM_INDV);
 			for(Map.Entry<Integer, Integer> me : abc.entrySet()) {
 				System.out.println("key "+ me.getKey() + ": id" + me.getValue());
 			}

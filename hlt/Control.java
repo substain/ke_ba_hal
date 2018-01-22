@@ -1,5 +1,6 @@
 package hlt;
 
+import java.util.HashMap;
 import java.util.Map;
 
 import hlt.Task.TaskType;
@@ -10,8 +11,17 @@ import hlt.Task.TaskType;
 
 //computes a "global" priority for ships
 public class Control {
-	public static final int NUM_UNSPEC_ATTS = 4;
-	public static final int NUM_ATTS = Task.NUM_ACTIVE_TYPES + NUM_UNSPEC_ATTS;
+	
+	public static final double GLOBAL_PRIO_FACTOR = 0.5;
+	public static final int NUM_UNSPEC_ATTS = 5;
+	public static final int NUM1ATTS = Task.NUM_ACTIVE_TYPES;
+	public static final int NUM2ATTS = Task.NUM_ACTIVE_TYPES + MapDif.NUM_MAPDIF_ATTS;
+	public static final int NUM2ATTSIZE = MapDif.NUM_MAPDIF_ATTS;
+
+	public static final int NUM_ATTS = Task.NUM_ACTIVE_TYPES + MapDif.NUM_MAPDIF_ATTS + NUM_UNSPEC_ATTS;
+	//public static final int NUM_ATTS = LocalChecker.NUM_LC_WEIGHTS +1 ;
+	
+	
 	public static final int NUM_MAX_CHANGE_TURNS = 30;
 	private static final double MAX_ADD_RATIO = 0.4;
 
@@ -60,9 +70,9 @@ public class Control {
 		waitUntilChange = 0;
 		changesToNextRatio = false;
 		
-		
+		distr = new double[shipDistribution.length];
 		//attributes = convertToRatioNums(shipDistribution);
-		distr = shipDistribution;
+		System.arraycopy(shipDistribution, 0, distr, 0, shipDistribution.length);
 		
         dynPossibleTasks = new boolean[Task.NUM_ACTIVE_TYPES];
 		dynNumShips = new int[Task.NUM_ACTIVE_TYPES]; //create an array of numbers to count the amount of each type, each round
@@ -123,22 +133,19 @@ public class Control {
 		return resRatio;
 	}
 	
-
-	/*
-	/**
-	 * changes the ratio number of a specific Task,
-	 * @param type the tasktype, which ratio will be changed
-	 * @param amount how much it will change
-	 * @param increase if true, increase the ratio, otherwise decrease it
-	 *
-	public void changeTaskRatio(TaskType type, int amount, boolean increase) {
-		if(increase) {
-			startTaskRatio[getTaskTypeIndex(type)] += amount;
-		} else { //decrease
-			startTaskRatio[getTaskTypeIndex(type)] -= amount;
+	public void initRound(HashMap<Integer, Task> tasks) {
+		clearDynNums();
+		changeRatio(); //only is changed, if changesToFinalRatio is set
+		currentRound++;
+		
+		//set the initial taskRatio
+		for(Map.Entry<Integer, Task> tme : tasks.entrySet()) {
+			if(tme.getValue().isControlTask(tme.getValue().getType())) {
+				increaseShipNum(tme.getValue().getType());
+			}
 		}
 	}
-	*/
+
 	
 	/**
 	 * if a task exceeds its ratio by more than globalDifThreshold, this returns false
@@ -155,14 +162,22 @@ public class Control {
 	}
 	
 	public void increaseShipNum(TaskType type) {
+		if(!Task.isControlTask(type)){
+			return;
+		}
 		dynNumShips[Task.getTaskTypeIndex(type)]++;
 		nDynShips++;
 	}
 	
-	public void initNextRound() {
-		clearDynNums();
-		changeRatio(); //only is changed, if changesToFinalRatio is set
-		currentRound++;
+	public void decreaseShipNum(TaskType type) {
+		if(!Task.isControlTask(type)){
+			return;
+		}
+		int index = Task.getTaskTypeIndex(type);
+		if(dynNumShips[index] > 0 && nDynShips > 0) {
+			dynNumShips[index]--;
+			nDynShips--;
+		}
 	}
 	
 	private void clearDynNums() {
@@ -193,6 +208,35 @@ public class Control {
     	}	
 
     }
+    
+    public double getHighestDif() {
+    	if(nDynShips == 0) { //no entry yet
+			double biggestRatio = 0;
+			for(int i = 0; i<Task.NUM_ACTIVE_TYPES;i++) {
+				if(!dynPossibleTasks[i]) {
+					continue;
+				}
+				if(distr[i] > biggestRatio) {
+					biggestRatio = distr[i];
+				}
+			}
+			return biggestRatio;
+    	}
+    	double maxPosDif = 0;
+		for(int i = 0; i < distr.length; i++) {
+			if(!dynPossibleTasks[i]) {
+				continue;
+			}
+			double dynRatio =  (double)dynNumShips[i] / (double)nDynShips;
+			double currentDif = distr[i] - dynRatio;
+			//debug += getTaskTypeByIndex(i).toString() + ":" +  dynNumShips[i] + ", -> " + attributes[i] + " - " + dynRatio + "|| \n";
+			if(currentDif > maxPosDif) {
+				maxPosDif = currentDif;
+			}
+		}
+		return maxPosDif;
+    	  	
+    }
 
 
 	
@@ -215,7 +259,7 @@ public class Control {
 			}
 			addedType = Task.getTaskTypeByIndex(indexOfBiggest);
 			debug += "Control:returned type (first): " + addedType.toString();
-			Log.log(debug);
+			//Log.log(debug);
 
 			increaseShipNum(addedType);
 			return addedType;
@@ -251,7 +295,10 @@ public class Control {
 	public void changeRatioOverTime(double[] newDistribution, int waitTime, int numberRoundsToChange) {
 		waitUntilChange = waitTime;
 		remainingChangeRounds = numberRoundsToChange;
-		nextDistr = newDistribution;
+
+		nextDistr = new double[newDistribution.length];
+		System.arraycopy(newDistribution, 0, nextDistr, 0, newDistribution.length);
+
 		changeAmount = new double[distr.length];
 		for(int i = 0; i < changeAmount.length; i++) {
 			changeAmount[i] = (nextDistr[i] - distr[i]) / numberRoundsToChange;
@@ -268,6 +315,8 @@ public class Control {
 		}
 		remainingChangeRounds--;
 		if(remainingChangeRounds == 0) {
+			System.arraycopy(nextDistr, 0, distr, 0, nextDistr.length);
+
 			distr = nextDistr;
 			changesToNextRatio = false;
 		} else {
@@ -279,7 +328,7 @@ public class Control {
 	}
 	
 	
-	public void changeRatioField(TaskType field, boolean add) {
+	public void changeRatioField(TaskType field, double amount) {
 		double[] newAtts;
 		if(remainingChangeRounds > 0) {
 			newAtts = nextDistr;
@@ -287,12 +336,8 @@ public class Control {
 			newAtts = distr;
 		}
 		
-		if(add) {
-			newAtts[Task.getTaskTypeIndex(field)] += addRatio;
-		} else {
-			newAtts[Task.getTaskTypeIndex(field)] -= addRatio;
-		}
-		
+		newAtts[Task.getTaskTypeIndex(field)] += addRatio * amount;
+	
 		changeRatioOverTime(normalize(newAtts),0, waitTime);
 	}
 	

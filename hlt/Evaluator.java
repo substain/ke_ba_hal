@@ -100,7 +100,7 @@ public class Evaluator{
 
 		double playerFraction = 1/(double)numActivePlayers;
 		
-		Log.log("myShipPercentage:" + myShipPercentage + ", myPlanetPercentage=" + myPlanetPercentage + ", playerFraction = " + playerFraction);
+		//Log.log("myShipPercentage:" + myShipPercentage + ", myPlanetPercentage=" + myPlanetPercentage + ", playerFraction = " + playerFraction);
 
 		/*
 		if(myShipPercentage > playerFraction) {
@@ -212,7 +212,7 @@ public class Evaluator{
 
 	    	}   
 	    }*/
-		Log.log("folder written.");
+		//Log.log("folder written.");
 
 		File[] fileList = bfolder.listFiles();
 

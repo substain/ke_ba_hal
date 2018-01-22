@@ -10,6 +10,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -21,6 +22,8 @@ public class GAFileHandler {
 	public static final boolean OVERWRITE_GAIT = false;
 	public static final String CFG_FOLDERNAME = "configs";
 	
+	public static final String OLD_GA_CFG_FOLDERNAME = "ga_configs_old";
+
 	public static final String BOT_SCR_FOLDERNAME = "scores";
 	public static final String SAFE_CFG_FOLDERNAME = "static_configs";
 	public static final String GA_CFG_FOLDERNAME = "ga_configs";
@@ -32,12 +35,11 @@ public class GAFileHandler {
 	public static final String EXT_BOTS_FILENAME = "extbots.txt";
 	
 	public static final String MATCHUP_FILENAME = "matchup.txt";
-	public static final int MATCHUP_LAST = -1;
 	
 	public static final String MATCHES_SH_FILENAME = "matches.sh";
 	public static final String MATCHES_SH_INIT = "#!/bin/sh";
 	public static final String MATCHES_SH_CALL_NOREPL = "./halite -q -r ";
-	public static final String MATCHES_SH_CALL = "./halite -q ";
+	public static final String MATCHES_SH_CALL = "./halite -q -r ";  //TODO : CURRENTLY ALSO NO OUTPUTS
 	public static final String MATCHES_SH_RECALL1 = "java genAlgo/TournamentSelector";
 	public static final String MATCHES_SH_RECALL2 = "source configs/matches.sh";
 
@@ -59,6 +61,10 @@ public class GAFileHandler {
 	public static final int GAIT_I_BA = 2; //batch
 	public static final int GAIT_I_N_BA = 3; //num batches
 	public static final int GAIT_I_FIN = 4; //finished? (int, 1 -> true)
+	private static final boolean GET_SF = true;
+	
+	public static final int CURRENT_LINE = -1;
+
 
 
 	boolean gaitLoaded;
@@ -246,7 +252,7 @@ public class GAFileHandler {
 				line += " ";
 			}
 		}
-		System.out.println("saving bot " +  getBotName(it, ba, id)  + "  data: " + line );
+		//System.out.println("saving bot " +  getBotName(it, ba, id)  + "  data: " + line );
 		newText.add(line);
 	    try {
 			Files.write(fPath, newText, Charset.forName("UTF-8"));
@@ -303,6 +309,54 @@ public class GAFileHandler {
 
 		
 	}
+	
+	public static double[] readOldBotAtts(int id){
+		String name = getBotNames(-1, -1).get(id);
+		return readOtherBotAttsByName(name, OLD_GA_CFG_FOLDERNAME);
+	}
+	
+	public static double[] readOtherBotAttsByName(String name, String subfoldername){
+		double[] res = new double[HaliteGenAlgo.NUM_ATTS]; //5
+		Scanner scanner = null;
+		Path dir = Paths.get(".").toAbsolutePath().normalize();
+
+		Path fPath = Paths.get(dir.toString(), CFG_FOLDERNAME, subfoldername, name + ".txt");
+		File file = new File(fPath.toString());
+
+	    try {
+			scanner = new Scanner(new FileInputStream(file), "UTF-8");
+	    } catch (FileNotFoundException e) {
+	        e.printStackTrace();  
+	    }
+	    
+	    scanner.useLocale(Locale.US);
+	    String resultstring = "num = ";
+	    int numSavedAtts = 0;
+	    if(scanner.hasNext()) {
+	    	numSavedAtts  = scanner.nextInt();
+	    	resultstring += numSavedAtts;
+	    }
+	    
+	    resultstring += ", atts : ";
+
+	    
+	    for(int i = 0; i < numSavedAtts; i++) {
+	    	//System.out.println("i =" + i + "/"+ numSavedAtts);
+	    	if(scanner.hasNext()) {
+	    		res[i] = scanner.nextDouble();
+	    		resultstring += res[i] + " ";
+	    	} else {
+				System.out.println("HaliteGenAlgo:Read Error - did not specify enough att values in " + fPath.toString());	
+				//throw new IOException();
+	    	}
+	    }
+	    
+	   // System.out.println("scanner read the following values:" + resultstring);
+	    scanner.close();
+	    return res;
+
+		
+	}
 
 	
 	public ArrayList<String> readPriorSafeBots() {
@@ -313,7 +367,7 @@ public class GAFileHandler {
 	    ArrayList<String> prSafeBots = new ArrayList<>();
 
 		if(!file.exists()) { 
-			System.out.println("HaliteGenAlgo:No prior safe bots specified");	
+			//System.out.println("HaliteGenAlgo:No prior safe bots specified");	
 			return prSafeBots;
 		}
 	    try {
@@ -337,7 +391,7 @@ public class GAFileHandler {
 	    ArrayList<String> externBots = new ArrayList<>();
 
 		if(!file.exists()) { 
-			System.out.println("HaliteGenAlgo:No extern bots specified");	
+			//System.out.println("HaliteGenAlgo:No extern bots specified");	
 			return externBots;
 		}
 		
@@ -356,6 +410,24 @@ public class GAFileHandler {
 	
 	// ######### BOT SCORES ##########
 	
+	public static ArrayList<Double> collectInitScores(ArrayList<Integer> botIds, int iteration, int batch, int ebSize, int sbSize) {
+		ArrayList<Double> scores = new ArrayList<>();
+		
+		int numScoresToGet =  getNumInitMatchesPerBot(ebSize, sbSize);
+
+		for(Integer i : botIds) {
+			LinkedList<Double> botScores = GAFileHandler.readBotScores(i, iteration, batch);
+
+			LinkedList<Double> relevantScores = new LinkedList<Double>();
+			for(int j = 0; j < numScoresToGet; j++) { //only count relevant = lastScores
+				//System.out.println("cis: botid: " + i + ", numScoreToGet: " +  j  + " / " + numScoresToGet );
+
+				relevantScores.add(botScores.get(j));
+			}
+			scores.add(HaliteGenAlgo.getAverage(relevantScores));
+		}
+		return scores;
+	}
 
 	/**
 	 * returns a sorted list of average Scores
@@ -389,11 +461,7 @@ public class GAFileHandler {
 			    		} 
 			    	}
 			);
-			
-			System.out.println("all scores of this bot ("+botNames.get(id)+") sorted:");
-			for(int i = 0; i < fileList.length; i++) {
-				System.out.println(fileList[i].toString());
-			}
+
 			
 			if(fileList.length != 0) {
 				for (File scoreFile : fileList) {
@@ -402,20 +470,14 @@ public class GAFileHandler {
 					}
 				}
 			} else {
-				System.out.println("specified folder:" + fPath.toString() + " does not contain files");
 				botScores.add((double) 0);
 			}
 		} else {
-			System.out.println("specified folder:" + fPath.toString() + " DOES NOT EXIST");
 			botScores.add((double) 0);
 		}
-		
-		System.out.println("all scores of this bot ("+botNames.get(id)+") sorted:");
-		for(int i = 0; i < botScores.size(); i++) {
-			System.out.println(botScores.get(i));
+		if(botScores.isEmpty()) {
+			//System.out.println("returning empty bot score");
 		}
-		
-
 		return botScores;
 
 	}
@@ -528,22 +590,24 @@ public class GAFileHandler {
 
 
 	//needs gait loaded
-    public boolean hasBadStarterRating(int id) {
-
-    	int sbotLine = 1;
+    public double getStarterRatingScore(int id, boolean type) {
+    	
+		int sbotLine = 1;
     	if(!externBots.isEmpty()) {
-    		if(getRankOf(id, 1) > HaliteGenAlgo.NUM_INDV) {
-    			return true;
+    		if(type!= GET_SF) {
+        		return getRankOf(id, 1);
     		}
     		sbotLine++;
     	}
+    	if(type != GET_SF) {
+    		return -1;
+    	}
+    	
     	
     	if(!safeBots.isEmpty()) {
-    		if(getRankOf(id, sbotLine) > HaliteGenAlgo.NUM_INDV) {
-    			return true;
-    		}
+    		return getRankOf(id, sbotLine);
     	}
-    	return false;
+    	return -1;
 
     	
     }
@@ -557,7 +621,7 @@ public class GAFileHandler {
 			return getRankOf(id, currentLine-1);
 		} else {
 			for(int i = 0; i < currentRatings.size(); i++) {
-				System.out.println("getRankOf(" +id+","+currentLine+") : checking i=" +i+" : cr(i)=" + currentRatings.get(i));
+				//System.out.println("getRankOf(" +id+","+currentLine+") : checking i=" +i+" : cr(i)=" + currentRatings.get(i));
 				if(currentRatings.get(i) == id) {
 					return i;
 				}
@@ -659,14 +723,14 @@ public class GAFileHandler {
 		}
 		
 		scanner.close();
-		System.out.println("adding "+rankings.size() + "rankings..");
+		//System.out.println("adding "+rankings.size() + "rankings..");
 
 		String ranks = "";
 		for(Map.Entry<Integer, Integer> me : rankings.entrySet()) {
 			ranks += me.getValue() + " ";
 		}
 		editText.add(ranks);
-		System.out.println("edittext: " + editText);
+		//System.out.println("edittext: " + editText);
 
 		
 	    try {
@@ -676,6 +740,63 @@ public class GAFileHandler {
 		}
 	}
 	
+	public static HashMap<Integer, Integer> createRankings(ArrayList<Integer> botIds, ArrayList<Double> scores, int rankingLine, int rankingSize){
+		/*
+		 * rankings: is a map of ids, sorted by ranking:
+		 * ranking(key):			0 1 2 3 4 5 6 7..
+		 * corresponding id: 	    5 2 1 7 0 6 3 4
+		 */
+		//System.out.println("create rankings: scores = "+ scores.size() + " / botids = "+botIds.size());
+
+		HashMap<Integer, Integer> rankings = new HashMap<>(HaliteGenAlgo.NUM_INDV);
+		ArrayList<ScoreRef> scoreList = new ArrayList<>();
+		for(int i = 0; i < botIds.size(); i++) {
+			//System.out.println("adding to wr: = " + scores.get(i) + "/" +botIds.get(i));
+
+			scoreList.add(new ScoreRef(scores.get(i), botIds.get(i)));
+		}
+		//System.out.println("wr set = " + scoreList.size());
+		Collections.sort(
+				scoreList, 
+				new Comparator<ScoreRef>(){
+		    		public int compare(ScoreRef sr1, ScoreRef sr2){
+		    			return Double.compare(sr1.getScore(), sr2.getScore());
+		    		} 
+		    	}
+		);
+		int wsind = scores.size()-1;
+		for(ScoreRef sr : scoreList) {
+			rankings.put(wsind, sr.getId());
+			//System.out.println("wsind = " + wsind + ", val = " + sr.getId());
+			wsind--;
+
+		}
+		//System.out.println("rankings with winners = " + rankings.size());
+		int rankLine = rankingLine;
+		if(rankLine == CURRENT_LINE) {
+			rankLine = readRankingsLine();
+		}
+
+		for(int i = 0; i < rankingSize; i++) {
+			//boolean rankingAdded = false;
+			if(!botIds.contains(i)) { 
+				if(GAFileHandler.getRankOf(i, rankLine) < scores.size()) {
+					System.out.println("createRankings: warning - a winner bot gets overwritten");
+				}
+				rankings.put(GAFileHandler.getRankOf(i, rankLine), i);
+			}
+		}
+		return rankings;
+	}
+	
+	public static int getIndIn(int myId, ArrayList<Integer> targetList) {
+		for(int i = 0; i < targetList.size(); i++) {
+			if(targetList.get(i) == myId) {
+				return i;
+			}
+		}
+		return -1;
+	}
 	
 	/*ArrayList<Integer> id_ranks
 	 * Rankings: is a list of rankings for each id:
@@ -690,10 +811,18 @@ public class GAFileHandler {
 	public int getMatchupLine() {
 		return matchupLine;
 	}
-	
+
+	private static int getNumInitMatchesPerBot(int ebSize, int sbSize) {
+		int numberMatches = HaliteGenAlgo.MATCHES_PER_EXT_ROUND * (ebSize/2 + ebSize%2);
+		numberMatches += HaliteGenAlgo.MATCHES_PER_EXT_ROUND * (sbSize/2 + sbSize%2);
+
+		return numberMatches;
+	}
+
+
 	
 	public void createMatchupFile(ArrayList<String> cbots, ArrayList<String> sbots, ArrayList<String> extbots) {
-		System.out.println("creating matchup file");
+		//System.out.println("creating matchup file");
 
 		Path dir = Paths.get(".").toAbsolutePath().normalize();
 		Path fPath = Paths.get(dir.toString(), CFG_FOLDERNAME, MATCHUP_FILENAME);
@@ -705,25 +834,38 @@ public class GAFileHandler {
 		
 		
 		//NUM_ROUNDS + MATCH_i .. MATCH_n
-		//line 1 extern matches: GA1 vs EXTi vs EXTi vs EXTi for each (only need 2 arguments per match)
+		//line 1 extern matches: GA1 vs GA2 vs EXT1 vs EXT2 for each
 
-		int numberMatches = extbots.size() * HaliteGenAlgo.NUM_INDV;
+		int numberMatches = (extbots.size()/2 + extbots.size()%2) * HaliteGenAlgo.NUM_INDV / 2;
 		String l_ext = numberMatches + " ";
-		for(int i = 0; i < HaliteGenAlgo.NUM_INDV; i++) {
-			for(int e = 0; e < extbots.size(); e++) {
+		for(int i = 0; i < HaliteGenAlgo.NUM_INDV; i=i+2) {
+			for(int e = 0; e < extbots.size(); e=e+2) {
 				l_ext += i + " ";
-				l_ext += e + " ";
+				l_ext += i+1 + " ";
+
+				l_ext+= e + " ";
+				if(e+1 >= extbots.size()) {
+					l_ext+= e + " ";
+				}
+				else l_ext+= (e+1) + " ";
 			}
 		}
 		muText.add(l_ext);
 		
-		//line 2 safeBot matches: GA1 vs GA1 vs SB1 vs SB1 (only need 2 arguments per match)
-		numberMatches = sbots.size() * HaliteGenAlgo.NUM_INDV;
+		//line 2 safeBot matches: GA1 vs GA2 vs SB1 vs SB2
+		numberMatches = (sbots.size()/2 + sbots.size()%2) * HaliteGenAlgo.NUM_INDV / 2;
+
 		String l_sb = numberMatches + " ";
-		for(int i = 0; i < HaliteGenAlgo.NUM_INDV; i++) {
-			for(int e = 0; e < sbots.size(); e++) {
+		for(int i = 0; i < HaliteGenAlgo.NUM_INDV; i=i+2) {
+			for(int s = 0; s < sbots.size(); s=s+2) {
 				l_sb += i + " ";
-				l_sb += e + " ";
+				l_sb += i+1 + " ";
+
+				l_sb+= s + " ";
+				if(s+1 >= sbots.size()) {
+					l_sb+= s + " ";
+				}
+				else l_sb+= (s+1) + " ";
 			}
 		}
 		muText.add(l_sb);
@@ -751,7 +893,7 @@ public class GAFileHandler {
 
 
 	public static void updateMatchupLine() {
-		System.out.println("updating matchup line");
+		//System.out.println("updating matchup line");
 		Scanner scanner = null;
 		Path dir = Paths.get(".").toAbsolutePath().normalize();
 		Path fPath = Paths.get(dir.toString(), CFG_FOLDERNAME, MATCHUP_FILENAME);
@@ -784,7 +926,7 @@ public class GAFileHandler {
 
 	
 	public static void addMatchup(ArrayList<Match> nextMatchups) {	
-		System.out.println("adding to matchup file");
+		//System.out.println("adding to matchup file");
 
 			Scanner scanner = null;
 			Path dir = Paths.get(".").toAbsolutePath().normalize();
@@ -815,7 +957,7 @@ public class GAFileHandler {
 			}
 			
 			editText.add(matchline);
-			System.out.println("addMatchup: matchuptext = "  +matchline);
+			//System.out.println("addMatchup: matchuptext = "  +matchline);
 
 		    try {
 				Files.write(fPath, editText, Charset.forName("UTF-8"));
@@ -827,7 +969,7 @@ public class GAFileHandler {
 	
     
 	public ArrayList<Match> readMatchup(int line) {
-    	System.out.println("readMatchup: line "+ line);
+    	//System.out.println("readMatchup: line "+ line);
 
 
 		Scanner scanner = null;
@@ -840,7 +982,7 @@ public class GAFileHandler {
 	    }
 	    
 		//read current matchup line (first line (init))
-	    if(line == -1) {
+	    if(line == CURRENT_LINE) {
 	    	matchupLine = scanner.nextInt();
 	    } else {
 	    	scanner.nextInt();
@@ -862,11 +1004,9 @@ public class GAFileHandler {
 	    ArrayList<Match> matches = new ArrayList<>(numMatchesThisLine);
 
 	    if(matchupLine == 0) {
-	    	numEntriesPerMatch = 2;
 	    	playerIDs = new int[numEntriesPerMatch];
 	    	matchupType = Match.TYPE_EXT;
 	    } else if(matchupLine == 1) {
-	    	numEntriesPerMatch = 2;
 	    	playerIDs = new int[numEntriesPerMatch];
 	    	matchupType = Match.TYPE_SAFE;
 	    } else {
@@ -878,12 +1018,12 @@ public class GAFileHandler {
 	    for(int i = 0; i < numMatchesThisLine;i++) {
 	    	for(int e = 0; e < numEntriesPerMatch; e++) {
 	    		playerIDs[e] = scanner.nextInt();
-	    		System.out.println("scanned : " + playerIDs[e]);
+	    		//System.out.println("scanned : " + playerIDs[e]);
 	    	}
 	    	if(numEntriesPerMatch == 4) {
-		    	matches.add(new Match(playerIDs[0], playerIDs[1], matchupType, playerIDs[2], matchupType, playerIDs[3], matchupType));
+		    	matches.add(new Match(playerIDs[0], playerIDs[1], Match.TYPE_GA, playerIDs[2], matchupType, playerIDs[3], matchupType));
 	    	} else { // 1x GA-Bot + 3x EXT/SAFE-Bot
-	    		matches.add(new Match(playerIDs[0], playerIDs[1], matchupType, playerIDs[1], matchupType, playerIDs[1], matchupType));
+	    		matches.add(new Match(playerIDs[0], playerIDs[1], Match.TYPE_GA, playerIDs[2], matchupType, playerIDs[3], matchupType));
 	    	}
 	    }
 
