@@ -127,7 +127,7 @@ public class Task {
 			double distToCTarget = thisShip.getDistanceTo(ctargetShip);
 
 			if(distToCTarget <= Constants.WEAPON_RADIUS) {
-				speed = (int)((Constants.WEAPON_RADIUS)-distToCTarget);		
+				speed -= (int)distToCTarget;		
 			}
 			if(!needsPath) {
 				move = Navigation.navigateShipTowardsPathTarget(gameMap, thisShip, ctargetShip, speed, path.getFirst(),obstructedPositions);
@@ -143,7 +143,7 @@ public class Task {
 				obstructedPositions.add(new Entity(-1, -1, estimatedPos.getXPos(), estimatedPos.getYPos(), 10, Constants.SHIP_RADIUS));
 			}
 			if(distToTarget <= Constants.WEAPON_RADIUS + 1) {
-				speed = (int)((Constants.WEAPON_RADIUS+1)-distToTarget);
+				speed -= (int)distToTarget;		
 			}
 			if(estimatedPos == null || distToTarget > 20) { //no position given
 				//Log.log("computeMove: navigation to " + targetShip.getXPos() + "|" + targetShip.getYPos() + " with speed " + speed + ", expected pos = " + Navigation.getExpectedPos(thisShip, targetShip, speed));

@@ -60,15 +60,17 @@ public class LocalChecker {
 	private double diversionThresh;
 	private double maxPlanetSize;
 	private Ship myCurrentShip;
+	private double[] rWeights;
 		
 	private double targetSpecificPlayer;
 	
-	public LocalChecker(int myPlayerId, double range, double divThresh, double maxPlSize, double targetStrPlayer) {
+	public LocalChecker(int myPlayerId, double range, double divThresh, double maxPlSize, double targetStrPlayer, double[] weights) {
 		myId = myPlayerId;
 		maxRange = range;
 		diversionThresh = divThresh * DIV_NORM_FACTOR;
 		maxPlanetSize = maxPlSize;
 		targetSpecificPlayer = targetStrPlayer;
+		rWeights = weights;
 	}
 	
 	public void updateRange(double range) {
@@ -217,7 +219,7 @@ public class LocalChecker {
 		if(dist > maxRange) {
 			dscore = 0;
 		} else {
-		dscore = (maxRange-dist)/maxRange * REI_RNG_FACTOR;
+		dscore = (maxRange-dist)/maxRange * rWeights[REI_RNG_FACTOR_I];
 
 		}
 		
@@ -228,9 +230,9 @@ public class LocalChecker {
 		} else if(remainingProd -numTargets <= 0) {
 			capscore = 0;
 		}
-		capscore = capscore * REI_PL_FULL_FACTOR;
+		capscore = capscore * rWeights[REI_PL_FULL_FACTOR_I];
 
-		double sizescore = (tPlanet.getRadius() / maxPlanetSize) * REI_PL_SIZE_FACTOR;
+		double sizescore = (tPlanet.getRadius() / maxPlanetSize) * rWeights[REI_PL_SIZE_FACTOR_I];
 
 		
 		return  (dscore + capscore + sizescore)*0.5;
@@ -245,7 +247,8 @@ public class LocalChecker {
 		if(dist > maxRange) {
 			dscore = 0;
 		} else {
-			 dscore = (maxRange-dist)/maxRange * EXP_RNG_FACTOR;
+			 dscore = (maxRange-dist)/maxRange * rWeights[EXP_RNG_FACTOR_I];
+			 //dscore = (maxRange-dist)/maxRange * EXP_RNG_FACTOR;
 
 		}
 
@@ -257,9 +260,11 @@ public class LocalChecker {
 		} else {
 			reiexpscore = 1 - ((double) numTargets / (double) remainingProd);
 		}
-		reiexpscore = reiexpscore * EXP_PL_TARGETED_FACTOR;
+		//reiexpscore = reiexpscore * EXP_PL_TARGETED_FACTOR;
+		reiexpscore = reiexpscore * rWeights[EXP_PL_TARGETED_FACTOR_I];
 
-		double sizescore = (tPlanet.getRadius() / maxPlanetSize) * EXP_PL_SIZE_FACTOR;
+
+		double sizescore = (tPlanet.getRadius() / maxPlanetSize) * rWeights[EXP_PL_SIZE_FACTOR_I];
 
 		return  (dscore + reiexpscore + sizescore)*0.5;
 	}
@@ -278,12 +283,12 @@ public class LocalChecker {
 		if(dist > maxRange) {
 			dscore = 0;
 		} else {
-			 dscore = (maxRange-dist)/maxRange * CON_RNG_FACTOR;
+			 dscore = (maxRange-dist)/maxRange * rWeights[CON_RNG_FACTOR_I];
 
 		}
-		double mhscore = (myShip.getHealth() / Constants.MAX_SHIP_HEALTH) * ATT_MYHEALTH_FACTOR;
+		double mhscore = (myShip.getHealth() / Constants.MAX_SHIP_HEALTH) * rWeights[CON_MYHEALTH_FACTOR_I] ;
 		
-		double sizescore = (dockedPlanet.getRadius() / maxPlanetSize) * CON_DP_SIZE_FACTOR;
+		double sizescore = (dockedPlanet.getRadius() / maxPlanetSize) * rWeights[CON_DP_SIZE_FACTOR_I];
 		
 		return (dscore + mhscore + sizescore)*targetSpecFactor;
 	}
@@ -303,14 +308,14 @@ public class LocalChecker {
 		if(dist > maxRange) {
 			dscore = 0;
 		} else {
-			 dscore = (maxRange-dist)/maxRange * ATT_RNG_FACTOR;
+			 dscore = (maxRange-dist)/maxRange * rWeights[ATT_RNG_FACTOR_I];
 
 		}
 		
 		
-		double mhscore = (myShip.getHealth() / Constants.MAX_SHIP_HEALTH) * ATT_MYHEALTH_FACTOR;
+		double mhscore = (myShip.getHealth() / Constants.MAX_SHIP_HEALTH) * rWeights[ATT_MYHEALTH_FACTOR_I];
 		
-		double ehscore = ((Constants.MAX_SHIP_HEALTH - tShip.getHealth()) / Constants.MAX_SHIP_HEALTH) * ATT_ENEMHEALTH_FACTOR;
+		double ehscore = ((Constants.MAX_SHIP_HEALTH - tShip.getHealth()) / Constants.MAX_SHIP_HEALTH) * rWeights[ATT_ENEMHEALTH_FACTOR_I];
 
 		return (dscore + mhscore + ehscore)*targetSpecFactor;
 	}

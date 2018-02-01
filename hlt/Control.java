@@ -16,9 +16,11 @@ public class Control {
 	public static final int NUM_UNSPEC_ATTS = 5;
 	public static final int NUM1ATTS = Task.NUM_ACTIVE_TYPES;
 	public static final int NUM2ATTS = Task.NUM_ACTIVE_TYPES + MapDif.NUM_MAPDIF_ATTS;
+	public static final int NUM3ATTS = Task.NUM_ACTIVE_TYPES + MapDif.NUM_MAPDIF_ATTS + LocalChecker.NUM_LC_WEIGHTS;
 	public static final int NUM2ATTSIZE = MapDif.NUM_MAPDIF_ATTS;
+	public static final int NUM3ATTSIZE = LocalChecker.NUM_LC_WEIGHTS;
 
-	public static final int NUM_ATTS = Task.NUM_ACTIVE_TYPES + MapDif.NUM_MAPDIF_ATTS + NUM_UNSPEC_ATTS;
+	public static final int NUM_ATTS = Task.NUM_ACTIVE_TYPES + MapDif.NUM_MAPDIF_ATTS + NUM_UNSPEC_ATTS + LocalChecker.NUM_LC_WEIGHTS;
 	//public static final int NUM_ATTS = LocalChecker.NUM_LC_WEIGHTS +1 ;
 	
 	
@@ -140,7 +142,7 @@ public class Control {
 		
 		//set the initial taskRatio
 		for(Map.Entry<Integer, Task> tme : tasks.entrySet()) {
-			if(tme.getValue().isControlTask(tme.getValue().getType())) {
+			if(Task.isControlTask(tme.getValue().getType())) {
 				increaseShipNum(tme.getValue().getType());
 			}
 		}

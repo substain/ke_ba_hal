@@ -5,7 +5,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.Collections;
-import java.util.LinkedList;
 import java.util.Collection;
 
 public class GameMap {
@@ -103,9 +102,7 @@ public class GameMap {
     	//Log.log("GameMap: checking: objectsBetween2");
 
         final ArrayList<Entity> entitiesFound = new ArrayList<>();
-    	for(Entity ent : obstructedPos) {
-    		//Log.log("objbetw2: e=" + ent.getXPos() + "/" + ent.getYPos() + ", r=" + ent.getRadius());
-    	}
+
       
         addEntitiesBetween(entitiesFound, start, target, planets.values());
         if(!obstructedPos.isEmpty()) {

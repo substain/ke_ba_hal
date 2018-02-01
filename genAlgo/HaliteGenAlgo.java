@@ -58,7 +58,7 @@ public class HaliteGenAlgo {
 
 	//public static final String MATCHUP_INIT = "";
 	public static final int MATCHES_PER_EXT_ROUND = 2;
-	public static final int MATCHES_PER_TOURN_ROUND = 3;
+	public static final int MATCHES_PER_TOURN_ROUND = 5;
 	//public static final int MATCH_ARGS_TOURN_ROUND = 3;
 
 
@@ -76,7 +76,7 @@ public class HaliteGenAlgo {
 	
 	public static final int GAIT_LINES = 3;
 	public static final int GAIT_INIT_ARGS = 5;
-	private static final double PARENT_W_FACTOR = 0.1;
+	private static final double PARENT_W_FACTOR = 0.3;
 	private static final int NUM_MAX_SBS = 2;
 
 	public static Random randNum;
@@ -139,6 +139,10 @@ public class HaliteGenAlgo {
 
     		readOldPopulationAtts();
 
+    	} else if(Objects.equals(currentRunName, new String("mixed"))){
+        	System.out.println("MIXED RUN, CREATING NEW POPULATION");
+
+    		readHalfOldPopulationAtts();
     	} else {
         	System.out.println("STANDARD RUN, CREATING NEW POPULATION");
 
@@ -172,7 +176,38 @@ public class HaliteGenAlgo {
     	}
 
 	}
-	
+	public void readHalfOldPopulationAtts(){
+		population = new ArrayList<>(NUM_INDV);
+    	int div_indv = (NUM_INDV/2)/4;
+
+    	for(int i = 0; i < NUM_INDV; i++) {
+    		if(i < NUM_INDV/2) {
+            	double[] attrDistr = GAFileHandler.readOldBotAtts(i);
+            	Individual newInd = new Individual(attrDistr, ATT_MAX);
+            	population.add(newInd);
+    		} else {
+    			double[] attrDistr;
+            	if(i < div_indv+NUM_INDV/2) {
+                	attrDistr = createQWeightedRandomDA(NUM_ATTS, 0);
+
+            	} else if (i < div_indv*2+NUM_INDV/2) {
+                	attrDistr = createQWeightedRandomDA(NUM_ATTS, 1);
+
+            	} else if (i < div_indv*3+NUM_INDV/2) {
+                	attrDistr = createQWeightedRandomDA(NUM_ATTS, 2);
+
+            	} else {
+                	attrDistr = createQWeightedRandomDA(NUM_ATTS, 3);
+
+            	}
+            	attrDistr = Individual.normalizeA(attrDistr);
+            	Individual newInd = new Individual(attrDistr, ATT_MAX);
+            	population.add(newInd);
+    		}
+
+    	}
+
+	}
 	
 
 	public void readOldPopulationAtts(){
@@ -188,6 +223,32 @@ public class HaliteGenAlgo {
     private void createPopulation() {
     	for(int i = 0; i < NUM_INDV; i++) {
         	double[] attrDistr = createRandomDoubleArray(NUM_ATTS);
+        	attrDistr = Individual.normalizeA(attrDistr);
+        	Individual newInd = new Individual(attrDistr, ATT_MAX);
+        	population.add(newInd);
+    	}
+		
+	}
+    
+
+    private void createPopulationHalfDistr(int restIndNum) {
+    	int div_indv = restIndNum/4;
+
+    	for(int i = 0; i < NUM_INDV; i++) {
+    		double[] attrDistr;
+        	if(i < div_indv) {
+            	attrDistr = createQWeightedRandomDA(NUM_ATTS, 0);
+
+        	} else if (i < div_indv*2) {
+            	attrDistr = createQWeightedRandomDA(NUM_ATTS, 1);
+
+        	} else if (i < div_indv*3) {
+            	attrDistr = createQWeightedRandomDA(NUM_ATTS, 2);
+
+        	} else {
+            	attrDistr = createQWeightedRandomDA(NUM_ATTS, 3);
+
+        	}
         	attrDistr = Individual.normalizeA(attrDistr);
         	Individual newInd = new Individual(attrDistr, ATT_MAX);
         	population.add(newInd);
@@ -735,7 +796,7 @@ public class HaliteGenAlgo {
     	double[] newData = new double[attNum];
 
     	for(int i = 0; i < newData.length; i++) {
-    		if(i % 4 == quarter) {
+    		if((i+2) % 4 == quarter) {
     			newData[i] = (randNum.nextDouble() * 0.25) + 0.75;
     		} else newData[i] = randNum.nextDouble() *0.75;
     	}

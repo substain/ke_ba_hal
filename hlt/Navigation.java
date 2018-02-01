@@ -32,7 +32,6 @@ public class Navigation {
 
     		)
     {
-        final int maxCorrections = Constants.MAX_NAVIGATION_CORRECTIONS;
         final boolean avoidObstacles = true;
         return navigateShipTowardsTargetLA(gameMap, ship, targetPos, maxThrust, avoidObstacles, obstructedPos);
 
@@ -154,10 +153,7 @@ public class Navigation {
         
         Position tpos = new Position(ship.getXPos() + targetDx, ship.getYPos() + targetDy);
         
-        Vector2D targetVector = new Vector2D(targetDx, targetDy);
-        Log.log("navigation of ship:" + ship.getId() + "("+ship.getXPos() +"|"+ship.getYPos()+"): init v(" + targetVector.getX() + "|" + targetVector.getY() + ")");
-        
-        int matches = 0;
+        Vector2D targetVector = new Vector2D(targetDx, targetDy);        
                
         for(Entity e : obstructedPos) {
         	double obstrDist = tpos.getDistanceTo(e);
@@ -169,26 +165,22 @@ public class Navigation {
             Vector2D inflVector = new Vector2D(Math.cos(orient) * obstrDist, Math.sin(orient) * obstrDist);
             inflVector.normalize();
             double dist_factor  = (Constants.NAV_CRIT-obstrDist)/Constants.NAV_CRIT;
-        	double influence =dthrust/2;       	
+        	double influence =dthrust*0.6;       	
         	double strength = influence * dist_factor;
 
-
         	inflVector.nscale(strength);
-        	targetVector = targetVector.add(inflVector);
+        	targetVector.add(inflVector);
         }
         
         targetVector.nscale(dthrust);
-        if(matches != 0) {
-            Log.log("navigation of ship:" + ship.getId() + ": new v(" + targetVector.getX() + "|" + targetVector.getY() + ")");
-        }
+
 
 
         Position newPos = new Position(ship.getXPos() + targetVector.getX(), ship.getYPos() + targetVector.getY());
 
         final int newThr = (int) Math.max(ship.getDistanceTo(newPos), maxThrust);
         final double newRad = ship.orientTowardsInRad(newPos);
-        //targetVector.normalize();
-        //targetVector.scale(maxThrust);
+
         
         
         if (avoidObstacles && !gameMap.objectsBetween2(ship, newPos, obstructedPos).isEmpty()) {

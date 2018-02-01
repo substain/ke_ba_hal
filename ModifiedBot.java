@@ -1,6 +1,5 @@
 import hlt.*;
 import hlt.Move.MoveType;
-import hlt.Ship.DockingStatus;
 import hlt.Task.TaskStatus;
 import hlt.Task.TaskType;
 
@@ -137,12 +136,17 @@ public class ModifiedBot {
         	//Log.log("mapDif("+i+"): " + MapDif.mapDifAttString(i) + " : " + attributes[i]);
         	mapDifValues[i] = attributes[i+Control.NUM1ATTS]-0.5;
         }
-        
-        double globalPrioThresh = attributes[Control.NUM2ATTS] * Control.GLOBAL_PRIO_FACTOR;
-        double mapDifTaskChangeTime = attributes[Control.NUM2ATTS+1];
-        double mapDifChangeFactor = attributes[Control.NUM2ATTS+2];
-        double attDistUnitFactor = attributes[Control.NUM2ATTS+3];
-        double targetSpecificPlayer = attributes[Control.NUM2ATTS+4]; 
+    	
+        double[] weights = new double[LocalChecker.NUM_LC_WEIGHTS];
+        for(int i = 0; i < weights.length; i++) {
+        	weights[i] = attributes[i+Control.NUM1ATTS+Control.NUM2ATTS];
+        }
+    	
+        double globalPrioThresh = attributes[Control.NUM3ATTS] * Control.GLOBAL_PRIO_FACTOR;
+        double mapDifTaskChangeTime = attributes[Control.NUM3ATTS+1];
+        double mapDifChangeFactor = attributes[Control.NUM3ATTS+2];
+        double attDistUnitFactor = attributes[Control.NUM3ATTS+3];
+        double targetSpecificPlayer = attributes[Control.NUM3ATTS+4]; 
        
         
         
@@ -150,12 +154,7 @@ public class ModifiedBot {
         int numPlayers = gameMap.getAllPlayers().size();
         Map<Integer, Planet> lastKnownPlanets = gameMap.getAllPlanets();
         // We now have 1 full minute to analyse the initial map.
-        final String initialMapIntelligence =
-                "width: " + gmWidth +
-                "; height: " + gmHeight +
-                "; players: " + lastKnownPlanets.size() +
-                "; planets: " + lastKnownPlanets.size();
-        //Log.log(initialMapIntelligence);
+        
         
         distanceUnit =(gmWidth + gmHeight)/2 * attDistUnitFactor; 
         double initRange = DIST_RANGE_FACTOR * distanceUnit * (1 / (double) numPlayers);
@@ -167,7 +166,7 @@ public class ModifiedBot {
         
         final Control controller = new Control(myId, shipDistribution, mapDifTaskChangeTime, mapDifChangeFactor);
         controller.setGlobalDifThresh(globalPrioThresh);
-        final LocalChecker localPrio = new LocalChecker(myId, initRange, shipDistribution[Task.getTaskTypeIndex(TaskType.Diversion)], maxPlanetSize, targetSpecificPlayer);
+        final LocalChecker localPrio = new LocalChecker(myId, initRange, shipDistribution[Task.getTaskTypeIndex(TaskType.Diversion)], maxPlanetSize, targetSpecificPlayer, weights);
 
         final Evaluator evaluator = new Evaluator(gameMap, botname);
         evaluator.setIteration(currentIt);
@@ -200,7 +199,6 @@ public class ModifiedBot {
             controller.initRound(tasks);
 
             controller.setDynPossibleTasks(gameMap);
-            evaluator.evaluateRound(gameMap); //computes current score
 
 
             
@@ -355,8 +353,14 @@ public class ModifiedBot {
             				if(move.getType() == MoveType.Thrust) { 	// SET OBSTRUCTED POSITIONS
             					ThrustMove tm = (ThrustMove) move;
             					Position thisExpectedPos = tm.getExpectedPosition(ship);
-            					myShipPositions.add(new Entity(-1, -1, thisExpectedPos.getXPos(), thisExpectedPos.getYPos(), 10, Constants.FORECAST_FUDGE_FACTOR_S));
-            					diversionObstructions.add(new Entity(-1, -1, thisExpectedPos.getXPos(), thisExpectedPos.getYPos(), 10, Constants.FORECAST_FUDGE_FACTOR_S));
+            					int numParts = tm.getThrust();
+            					double xPart = (thisExpectedPos.getXPos() - ship.getXPos())/numParts;
+            					double yPart = (thisExpectedPos.getYPos() - ship.getYPos())/numParts;
+
+            					for(int i = 0; i < numParts; i++) {
+                					myShipPositions.add(new Entity(-1, -1, ship.getXPos()+(xPart*i), thisExpectedPos.getYPos()+(yPart*i), 10, Constants.FORECAST_FUDGE_FACTOR2));
+                					diversionObstructions.add(new Entity(-1, -1, ship.getXPos()+(xPart*i), thisExpectedPos.getYPos()+(yPart*i), 10, Constants.FORECAST_FUDGE_FACTOR2));
+            					}
 
             				}
                         	

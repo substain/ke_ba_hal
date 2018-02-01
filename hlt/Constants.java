@@ -56,7 +56,7 @@ public class Constants {
     public static final double FORECAST_FUDGE_FACTOR = SHIP_RADIUS + 0.1;
     public static final double FORECAST_FUDGE_FACTOR2 = SHIP_RADIUS + 0.4;
 
-    public static final double FORECAST_FUDGE_FACTOR_S = FORECAST_FUDGE_FACTOR2;
+    public static final double FORECAST_FUDGE_FACTOR_S = SHIP_RADIUS + 2;
     public static final double FORECAST_FUDGE_FACTOR_DIV = SHIP_RADIUS * 10;
 
     //old: 90

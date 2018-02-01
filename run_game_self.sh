@@ -1,4 +1,4 @@
 #!/bin/sh
 
 javac ModifiedBot.java
-./halite "java ModifiedBot" "java ModifiedBot"
+./halite -s 638905058 "java ModifiedBot" "java ModifiedBot"

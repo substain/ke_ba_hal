@@ -89,6 +89,13 @@ public class Position {
     	Position pos = new Position(mid.getXPos() + dx, mid.getYPos() + dy);
     	return pos;
     }
+    
+    public static Position getHalfOppPos(Position mid, Position refPos) {
+    	double dx = mid.getXPos() - refPos.getXPos();
+    	double dy = mid.getYPos() - refPos.getYPos();
+    	Position pos = new Position(mid.getXPos() + 0.5*dx, mid.getYPos() +  0.5*dy);
+    	return pos;
+    }
 
 	public static Vector2D getMovementVector(Position lastPos, Position midPos) {
     	double dx = midPos.getXPos() - lastPos.getXPos();

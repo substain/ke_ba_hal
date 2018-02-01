@@ -17,8 +17,9 @@ public class Vector2D {
             return Math.sqrt(x*x+y*y);      
       }
     
-      public Vector2D add(Vector2D v) {
-          return new Vector2D(x+v.x,y+v.y);      
+      public void add(Vector2D v) {
+    	  x += v.x;
+    	  y += v.y;
       }
       
       public Vector2D minus(Vector2D v) {
