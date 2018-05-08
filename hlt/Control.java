@@ -27,6 +27,7 @@ public class Control {
 	public static final int NUM_MAX_CHANGE_TURNS = 30;
 	private static final double MAX_ADD_RATIO = 0.4;
 
+	//not used
 	public enum TaskTypeRatio { AttackVSBuild, ATAnyVSPlanned, ATPConquerVSDiv, BUExpandVsReinforce, OffensiveVSDefensive, LocalVSGlobal;
 		  @Override
 		  public String toString() {
@@ -49,7 +50,7 @@ public class Control {
 	int numPlanets;
 	int currentRound;
 
-	double[] distr;
+	double[] distr; //the desired ship distribution
 	
 	double[] nextDistr;
 	int waitUntilChange;
@@ -61,7 +62,7 @@ public class Control {
 	double globalDifThreshold;
 	
 	int nDynShips;
-	int[] dynNumShips;
+	int[] dynNumShips; //the actual ship distribution
 	boolean dynPossibleTasks[];
 	private double addRatio;
 

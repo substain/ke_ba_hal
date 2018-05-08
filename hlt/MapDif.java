@@ -8,7 +8,9 @@ public class MapDif {
 	
 	//attribute indices
 	public static final int NUM_MAPDIF_ATTS = 11; //these atts will be mapped from 0 .. 1  to  -0.5 .. 0.5
-	
+	public static final int NUM_MOP_ATTS = 5;
+	public static final int NUM_OPOT_ATTS = 5;
+
 	//for changes in myOwnedPlanets/allOwnedPlanets
 	public static final int MOP_CH_EXP = 0;
 	public static final int MOP_CH_REI = 1;
@@ -344,19 +346,19 @@ public class MapDif {
 	
 	public static String mapDifAttString(int id) {
 	    switch(id) {
-	      case MOP_CH_EXP: return "[myOwnedPlanets change expand]";
-	      case MOP_CH_REI: return "[myOwnedPlanets change reinforce]"; 
-	      case MOP_CH_ATT: return "[myOwnedPlanets change attack]";
-	      case MOP_CH_CON: return "[myOwnedPlanets change conquer]";
-	      case MOP_CH_DIV: return "[myOwnedPlanets change diversion]";
+	      case MOP_CH_EXP: return "[myPlanets change expand]";
+	      case MOP_CH_REI: return "[myPlanets change reinforce]"; 
+	      case MOP_CH_ATT: return "[myPlanets change attack]";
+	      case MOP_CH_CON: return "[myPlanets change conquer]";
+	      case MOP_CH_DIV: return "[myPlanets change diversion]";
 	      
-	      case OPOT_CH_EXP: return "[ownedPlanetsOverThreshold change expand]";
-	      case OPOT_CH_REI: return "[ownedPlanetsOverThreshold change reinforce]";
-	      case OPOT_CH_ATT: return "[ownedPlanetsOverThreshold change attack]";
-	      case OPOT_CH_CON: return "[ownedPlanetsOverThreshold change conquer]";
-	      case OPOT_CH_DIV: return "[ownedPlanetsOverThreshold change diversion]";
+	      case OPOT_CH_EXP: return "[planetsOwned thresh changes expand]";
+	      case OPOT_CH_REI: return "[planetsOwned thresh changes reinforce]";
+	      case OPOT_CH_ATT: return "[planetsOwned thresh changes attack]";
+	      case OPOT_CH_CON: return "[planetsOwned thresh changes conquer]";
+	      case OPOT_CH_DIV: return "[planetsOwned thresh changes diversion]";
 	      
-	      case OPOT_THRESH_V: return "[ownedPlanetsOverThreshold value]";
+	      case OPOT_THRESH_V: return "[planetsOwned thresh]";
 
 	      default: return "[attack]";
 	    }

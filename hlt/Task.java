@@ -54,7 +54,7 @@ public class Task {
 	private ArrayList<Entity> obstructedPositions;
 
 	public Task(Ship ship, GameMap gmap, TaskType ttype, Entity ttarget) {
-		obstructedPositions = new ArrayList<Entity>();
+		obstructedPositions = new ArrayList<Entity>(); 
 		thisShip = ship;
 		target = ttarget;
 		type = ttype;
@@ -85,7 +85,7 @@ public class Task {
 		switch(type) {
 		case Diversion: //TODO: dont crash into walls/planets
 			if(estimatedPos != null) {
-				obstructedPositions.add(new Entity(-1, -1, estimatedPos.getXPos(), estimatedPos.getYPos(), 10, Constants.SHIP_RADIUS));
+				obstructedPositions.add(new Entity(-1, -1, estimatedPos.getXPos(), estimatedPos.getYPos(), 10, Constants.SHIP_RADIUS)); 
 			}
 			Ship tShip = (Ship) target;
 			double safetyZone = Constants.WEAPON_RADIUS * 2;
@@ -324,7 +324,7 @@ public class Task {
 		return type;
 	}
 	
-	public void setObstructedPositions(ArrayList<Entity> myExpectedPositions) {
+	public void setObstructedPositions(ArrayList<Entity> myExpectedPositions) { //NOT USED
 		//Log.log("Task.setObstructedPositions:");
 		//for(Entity ent : myExpectedPositions) {
 			//Log.log("E: " + ent.getXPos() + "/" + ent.getYPos() + ", r=" + ent.getRadius());

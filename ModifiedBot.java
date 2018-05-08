@@ -47,8 +47,6 @@ public class ModifiedBot {
         int gmWidth = gameMap.getWidth();
         int gmHeight = gameMap.getHeight();
         
-        
-
         double[] attributes = new double[Control.NUM_ATTS];
         //double[] finalShipDistr = new double[Task.NUM_ACTIVE_TYPES];
         //double roundAttNormFactor = (Constants.MAX_NUM_ROUNDS/HaliteGenAlgo.NUM_ATT_SETTINGS_PER_GAME)/HaliteGenAlgo.ATT_MAX;
@@ -85,10 +83,10 @@ public class ModifiedBot {
         }
         if(!usingBotID || fileNotFound) {
         	//Log.log("static ship distr");
-
+        	/*
 	        for(int i = 0; i < attributes.length; i++) {
 	        	attributes[i] = 0.1; //TODO CHANGE
-	        }
+	        }*/
 	      //21 MyBot3
 		    attributes[0] = 0.5803125976743176;
 		    attributes[1] = 0.046003300352238506;
@@ -120,7 +118,7 @@ public class ModifiedBot {
 
         }
         
-        
+        Log.log(attrSemantics(attributes, botname));
     
         double[] shipDistribution = new double[Control.NUM1ATTS];
         
@@ -281,12 +279,12 @@ public class ModifiedBot {
             HashMap<Integer, Integer> targetedPlanets = new HashMap<>(); //planets I want to go to
             Collection<Ship> shiplist = gameMap.getMyPlayer().getShips().values();
             ArrayList<Entity> myShipPositions = new ArrayList<>(shiplist.size()); //my ship positions that could collide with other ships
-            ArrayList<Entity> diversionObstructions = new ArrayList<>(shiplist.size());	 //my ship positions and enemy ship positions
+            ArrayList<Entity> diversionObstructions = new ArrayList<>(shiplist.size());	 //my ship positions and enemy ship positions //NOT USED
             ArrayList<Entity> obstructedPositions;
             
             for(Map.Entry<Integer, Position> mapentry : expectedPositions.entrySet()) {
             	Position pos = mapentry.getValue();
-            	diversionObstructions.add(new Entity(-1, -1, pos.getXPos(), pos.getYPos(), 10, Constants.FORECAST_FUDGE_FACTOR_DIV));
+            	//diversionObstructions.add(new Entity(-1, -1, pos.getXPos(), pos.getYPos(), 10, Constants.FORECAST_FUDGE_FACTOR_DIV));
             }
             
             
@@ -304,7 +302,7 @@ public class ModifiedBot {
             	for(Entity e: myShipPositions) {
             		if(ship.getDistanceTo(e) <= Constants.FLY_RANGE )
             		obstructedPositions.add(e);
-            		diversionObstructions.add(e);
+            		//diversionObstructions.add(e);
             	}
             	if(tasks.containsKey(ship.getId())) {
             		Task currentTask = tasks.get(ship.getId());
@@ -323,7 +321,7 @@ public class ModifiedBot {
             				if(newDivTarget != null) {
                 				currentTask.updateTarget(localPrio.getDivTarget());
             				}
-                			currentTask.setObstructedPositions(diversionObstructions);
+                			currentTask.setObstructedPositions(diversionObstructions); //NOT USED
 
             				currentTask.setFleePos(fleePos);
 
@@ -359,7 +357,7 @@ public class ModifiedBot {
 
             					for(int i = 0; i < numParts; i++) {
                 					myShipPositions.add(new Entity(-1, -1, ship.getXPos()+(xPart*i), thisExpectedPos.getYPos()+(yPart*i), 10, Constants.FORECAST_FUDGE_FACTOR2));
-                					diversionObstructions.add(new Entity(-1, -1, ship.getXPos()+(xPart*i), thisExpectedPos.getYPos()+(yPart*i), 10, Constants.FORECAST_FUDGE_FACTOR2));
+                					//diversionObstructions.add(new Entity(-1, -1, ship.getXPos()+(xPart*i), thisExpectedPos.getYPos()+(yPart*i), 10, Constants.FORECAST_FUDGE_FACTOR2));
             					}
 
             				}
@@ -448,7 +446,7 @@ public class ModifiedBot {
         				}
         			}
             		if(nTask.getType() == TaskType.Diversion){
-                    	nTask.setObstructedPositions(diversionObstructions);
+                    	nTask.setObstructedPositions(diversionObstructions); //NOT USED
             			nTask.setFleePos(fleePos);
 
             			LinkedList<Position> fleePath = shPathFinder.getPathToPos(ship, fleePos, gameMap);
@@ -471,7 +469,7 @@ public class ModifiedBot {
     					Position thisExpectedPos = tm.getExpectedPosition(ship);
     					//currentHitmap[expectedX][expectedY] = true;
     					myShipPositions.add(new Entity(-1, -1, thisExpectedPos.getXPos(), thisExpectedPos.getYPos(), 10, Constants.FORECAST_FUDGE_FACTOR_S));
-    					diversionObstructions.add(new Entity(-1, -1, thisExpectedPos.getXPos(), thisExpectedPos.getYPos(), 10, Constants.FORECAST_FUDGE_FACTOR_S));
+    					//diversionObstructions.add(new Entity(-1, -1, thisExpectedPos.getXPos(), thisExpectedPos.getYPos(), 10, Constants.FORECAST_FUDGE_FACTOR_S));
     				}
 
     				moveList.add(move);
@@ -669,6 +667,65 @@ public class ModifiedBot {
     	
     }
 
+    
+    static String attrSemantics(double[] attributes, String botname) {
+    	String result = "Bot '"+botname+"' config:";
+    
+    	result += "Ship distribution (initial):";
+        for(int i = 0; i < Control.NUM1ATTS; i++) {
+			result += "\n";
+			result +=  Task.getTaskTypeByIndex(i).toString() + ":"+ (attributes[i] * 100) + "%,";
+        }
+        
+        result += "Map change effects:";
+        for(int i = Control.NUM1ATTS; i < Control.NUM1ATTS+Control.NUM2ATTSIZE; i++) {
+			result += "\n";
+			result += MapDif.mapDifAttString(i) + ":"+ (attributes[i+Control.NUM1ATTS]-0.5);
+			
+			
+			if(i < Control.NUM1ATTS + MapDif.NUM_MOP_ATTS) {
+				//
+				result += " ";
+			}
+			else if(i < Control.NUM1ATTS + MapDif.NUM_MOP_ATTS + MapDif.NUM_OPOT_ATTS) {
+			
+			} else if(i == Control.NUM1ATTS + MapDif.NUM_MOP_ATTS + MapDif.NUM_OPOT_ATTS) {
+				
+				
+			} else {
+				
+				
+			}
+        }
+    	//Log.log("mapDif("+i+"): " + MapDif.mapDifAttString(i) + " : " + attributes[i]);
+
+        result += "Weights for changes are:";
+        for(int i = Control.NUM1ATTS+Control.NUM2ATTS; i < Control.NUM1ATTS+Control.NUM2ATTSIZE; i++) {
+			result += "\n";
+			result +=  Task.getTaskTypeByIndex(i).toString() + ":"+ (attributes[i] * 100) + "%,";
+        }
+        
+        /*
+        double[] mapDifValues = new double[Control.NUM2ATTSIZE];
+        for(int i = 0; i < mapDifValues.length; i++) {
+        	mapDifValues[i] = attributes[i+Control.NUM1ATTS]-0.5;
+        }
+    	
+        double[] weights = new double[LocalChecker.NUM_LC_WEIGHTS];
+        for(int i = 0; i < weights.length; i++) {
+        	weights[i] = attributes[i+Control.NUM1ATTS+Control.NUM2ATTS];
+        }
+    	
+        double globalPrioThresh = attributes[Control.NUM3ATTS] * Control.GLOBAL_PRIO_FACTOR;
+        double mapDifTaskChangeTime = attributes[Control.NUM3ATTS+1];
+        double mapDifChangeFactor = attributes[Control.NUM3ATTS+2];
+        double attDistUnitFactor = attributes[Control.NUM3ATTS+3];
+        double targetSpecificPlayer = attributes[Control.NUM3ATTS+4]; 
+       
+    	
+    	*/
+    	return result;
+    }
 
     
 }
