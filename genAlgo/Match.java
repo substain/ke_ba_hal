@@ -10,6 +10,7 @@ public class Match {
 
 	
 	private int firstBotID;
+	private int firstBotType;
 	
 	private int secondBotType; //while first bot is always a GA bot, second bot may be a SGA or extern bot
 	//0: GA_Bots , 1:safeBots, 2: externBots
@@ -27,6 +28,14 @@ public class Match {
 	
 	public Match(int first, int second, int secondType) {
 		firstBotID = first;
+		firstBotType = TYPE_GA;
+		secondBotID = second;
+		secondBotType = secondType;
+		fourPlayerMatch = false;
+	}
+	public Match(int first, int firstType, int second, int secondType) {
+		firstBotID = first;
+		firstBotType = firstType;
 		secondBotID = second;
 		secondBotType = secondType;
 		fourPlayerMatch = false;
@@ -34,6 +43,19 @@ public class Match {
 	
 	public Match(int first, int second, int secondType, int third, int thirdType, int forth, int forthType) {
 		firstBotID = first;
+		firstBotType = TYPE_GA;
+		secondBotID = second;
+		secondBotType = secondType;
+		thirdBotID = third;
+		thirdBotType = thirdType;
+		forthBotID = forth;
+		forthBotType = forthType;
+		fourPlayerMatch = true;
+	}
+	
+	public Match(int first,int firstType, int second, int secondType, int third, int thirdType, int forth, int forthType) {
+		firstBotID = first;
+		firstBotType = firstType;
 		secondBotID = second;
 		secondBotType = secondType;
 		thirdBotID = third;
@@ -72,20 +94,23 @@ public class Match {
 			return secondBotType;
 		case 0:
 		default:
-			return 0;
+			return firstBotType;
 		}
 	}
 	
-	public static String getString(Match m) {
+	public static String getString(Match m, int numRepeats) {
 		String ret;
+
 		if(m.isFourPlayer()) {
-			ret = "Match(4):"+m.getID(0);
+			ret = "Match(4P):"+m.getID(0) + "("+ getTypeString(m.getType(0)) +")";
 			for(int i = 1; i < 4; i++) {
 				ret += "vs" + +m.getID(i) + "("+ getTypeString(m.getType(i)) +")";
 			}
+			ret += " x"+numRepeats;
 		} else {
-			ret = "Match(2):"+m.getID(0);
-			ret += "vs" + +m.getID(1) + "("+ getTypeString(m.getType(1))+")";
+
+			ret = "Match(2P):"+m.getID(0) + "("+ getTypeString(m.getType(0)) +")";
+			ret += "vs" + +m.getID(1) + "("+ getTypeString(m.getType(1))+") x"+numRepeats;
 		}
 		return ret;
 	}
@@ -102,9 +127,9 @@ public class Match {
 		}
 	}
 	
-	public static void printMatches(ArrayList<Match> matches) {
+	public static void printMatches(ArrayList<Match> matches, int numRepeats) {
 		for(Match m : matches) {
-			System.out.println(getString(m));
+			System.out.println(getString(m, numRepeats));
 		}
 	}
 

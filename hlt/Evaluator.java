@@ -119,7 +119,6 @@ public class Evaluator{
 				}
 		}
 */
-		
 		if(WRITE_TO_FILE) {
 			addToFile(myShipPercentage+myPlanetPercentage);
 		}
@@ -141,6 +140,13 @@ public class Evaluator{
 		}
 		*/
 		//return false; 
+	}
+	
+	public void evaluateRoundDom(double domFactor) {
+		if(WRITE_TO_FILE) {
+			addToFile(domFactor);
+		}
+
 	}
 	
 	private void accumulateScore() {
@@ -185,6 +191,9 @@ public class Evaluator{
 
 	public void initConfigFile() {
 
+		if(!botName.startsWith("GABot")) {
+			Log.log("Evaluator:init: non-GABot");
+		}
 		Path dir = Paths.get(".").toAbsolutePath().normalize();
 		Path botFolder = Paths.get(dir.toString(), GAFileHandler.CFG_FOLDERNAME, GAFileHandler.BOT_SCR_FOLDERNAME, botName);
 		//Path iterationFolder = Paths.get(botFolder.toString(), String.valueOf(iteration));

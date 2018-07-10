@@ -10,7 +10,8 @@ import hlt.Task.TaskType;
 public class LocalChecker {
 	
 	public static final int NUM_LC_WEIGHTS = 12;
-	
+	public static final int NUM_WM_WEIGHTS = 5;
+
 	public static final double CON_RNG_FACTOR = 0.17;
 	public static final double CON_MYHEALTH_FACTOR = 0.48;
 	public static final double CON_DP_SIZE_FACTOR = 0.35;
@@ -47,7 +48,16 @@ public class LocalChecker {
 
 	public static final double DIV_NORM_FACTOR = 0.5;
 
+	//initphase multipliers
+	public static final double WM_CON = 0.5;
+	public static final double WM_ATT = 0.8;
+	public static final double WM_REI = 0.65;
+	public static final double WM_EXP = 1.25;
+	public static final double WM_DIV = 1.1;
 	
+	public static final int NUM_WK_SHIPS = 10;
+	public static final double SHIP_MIN_MAXDIST = 50;
+
 	
 	//private TreeMap<Integer, Integer> shipRatings;
 	//private TreeMap<Integer, Integer> planetRatings;
@@ -61,26 +71,91 @@ public class LocalChecker {
 	private double maxPlanetSize;
 	private Ship myCurrentShip;
 	private double[] rWeights;
+	private double[] wmWeights;
+	private int strongPlayer;
+	private int weakPlayer;
+	private boolean noPaths;
+
+	private final double weakThresh;
+	private double weaknessScore;
 		
 	private double targetSpecificPlayer;
 	
-	public LocalChecker(int myPlayerId, double range, double divThresh, double maxPlSize, double targetStrPlayer, double[] weights) {
+	public LocalChecker(int myPlayerId, double range, double divThresh, double maxPlSize, double targetStrPlayer, double[] weights, double[] weaknessWeights, double weaknessThresh, boolean noPathfinding) {
 		myId = myPlayerId;
 		maxRange = range;
 		diversionThresh = divThresh * DIV_NORM_FACTOR;
 		maxPlanetSize = maxPlSize;
 		targetSpecificPlayer = targetStrPlayer;
 		rWeights = weights;
+		weakThresh = weaknessThresh;
+		wmWeights = weaknessWeights;
+		strongPlayer = 0;
+		weakPlayer = 1;
+		noPaths = noPathfinding;
 	}
 	
 	public void updateRange(double range) {
 		maxRange = range;
 	}
 	
-	//maybe also turn in obstacles
-	public void compute(Ship myShip, Map<Double, Entity> entitiesByDist, HashMap<Integer, Integer> targetedPlanets, GameMap gmap, int strPlayer, int wkPlayer) {
-				
+	public void initRound(GameMap gmap, int strPlayer, int wkPlayer) {
 		currentGameMap = gmap;
+		compWeaknessScore();
+		strongPlayer = strPlayer;
+		weakPlayer = wkPlayer;
+	}
+	
+	public void compWeaknessScore() {
+		Map<Integer,Ship> myShips = currentGameMap.getMyPlayer().getShips();
+		int numMyShips = currentGameMap.getMyPlayer().getShips().size();
+		double wkShipScore = 0.0;
+		double nearnessScore = 0.0;
+		if(numMyShips < NUM_WK_SHIPS) {
+			wkShipScore = ((double)(NUM_WK_SHIPS-numMyShips))/NUM_WK_SHIPS;
+			
+			double maxDist = 0;
+			for(Map.Entry<Integer, Ship> mapentry : myShips.entrySet()) {
+				if(maxDist >= SHIP_MIN_MAXDIST) {
+					break;
+				}
+				Ship s1 = mapentry.getValue();
+				for(Map.Entry<Integer, Ship> mapentry2 : myShips.entrySet()) {
+					Ship s2 = mapentry2.getValue();
+					if(s2.getId() == s1.getId()) {
+						continue;
+					}
+					double dist = s1.getDistanceTo(s2);
+					
+					if(dist > maxDist) {
+						maxDist = dist;
+						if(maxDist >= SHIP_MIN_MAXDIST) {
+							break;
+						}
+					}
+				}
+			}
+			
+			
+			if(maxDist < SHIP_MIN_MAXDIST) {
+				nearnessScore = (SHIP_MIN_MAXDIST-maxDist)/SHIP_MIN_MAXDIST;
+
+			} else nearnessScore = 0;
+
+		}
+		
+		weaknessScore = 0.5*wkShipScore + 0.5*nearnessScore;
+	}
+	
+	//maybe also turn in obstacles
+	public void compute(Ship myShip, Map<Double, Entity> entitiesByDist, HashMap<Integer, Integer> targetedPlanets) {
+		
+		//modifier if own ships are considered attackable/weak
+		boolean weaknessMod = false;
+		if(weaknessScore >= weakThresh) {
+			weaknessMod = true;
+		}
+		
 		myCurrentShip = myShip;
 		entitiesInRange = new ArrayList<>();
 		boolean nextEnemySet = false;
@@ -119,8 +194,14 @@ public class LocalChecker {
 				if(targetPlanet.getOwner() == myId && !targetPlanet.isFull()) {
 					thisTaskRating = compReinforceScore(myShip, targetPlanet, targets, dist);
 					//Log.log("LC:compute(),reinforce planet " + targetPlanet.getId() + ", rating = " + thisTaskRating);
-
+					
 					int index = Task.getTaskTypeIndex(TaskType.Reinforce);
+
+					if(weaknessMod) {
+						thisTaskRating *= wmWeights[index];
+					}
+					
+					
 					if(thisTaskRating > highestTaskRatings[index]) {
 						highestTaskRatings[index] = thisTaskRating;
 						highestEntities[index] = targetPlanet;
@@ -128,10 +209,13 @@ public class LocalChecker {
 					
 					
 				}	else if(!targetPlanet.isOwned()) {
-					thisTaskRating = compExpandScore(myShip, targetPlanet, targets, dist);
+					thisTaskRating = compExpandScore(myShip, targetPlanet, targets, dist, weaknessMod);
 					//Log.log("LC:compute(),expand planet " + targetPlanet.getId() + ", rating = " + thisTaskRating);
-
 					int index = Task.getTaskTypeIndex(TaskType.Expand);
+
+					if(weaknessMod) {
+						thisTaskRating *= wmWeights[index];
+					}
 					if(thisTaskRating > highestTaskRatings[index]) {
 						highestTaskRatings[index] = thisTaskRating;
 						highestEntities[index] = targetPlanet;
@@ -146,26 +230,30 @@ public class LocalChecker {
 				if(targetShip.getOwner() == myId) {
 					continue;
 				}
-				boolean strongPlayer = false;
-				boolean weakPlayer = false;
+				boolean sPlayer = false;
+				boolean wPlayer = false;
 				
-				if(targetShip.getOwner() == strPlayer) {
-					strongPlayer = true;
-				} else if (targetShip.getOwner() == wkPlayer) {
-					weakPlayer = true;
+				if(targetShip.getOwner() == strongPlayer) {
+					sPlayer = true;
+				} else if (targetShip.getOwner() == weakPlayer) {
+					wPlayer = true;
 				}
 				DockingStatus dockStatus = targetShip.getDockingStatus();
 				if(dockStatus == DockingStatus.Docked || dockStatus == DockingStatus.Docking) {
 					Planet dockedPlanet;
 					if(dockStatus == DockingStatus.Docked) {
-						dockedPlanet = gmap.getPlanet(targetShip.getDockedPlanet());
+						dockedPlanet = currentGameMap.getPlanet(targetShip.getDockedPlanet());
 					} else {
-						dockedPlanet = gmap.getNearestPlanet(targetShip);
+						dockedPlanet = currentGameMap.getNearestPlanet(targetShip);
 					}
-					thisTaskRating = compConquerScore(myShip, targetShip, dockedPlanet,dist, strongPlayer, weakPlayer);
+					thisTaskRating = compConquerScore(myShip, targetShip, dockedPlanet,dist, sPlayer, wPlayer);
 					//Log.log("LC:compute(),conquer ship " + targetShip.getId() + ", rating = " + thisTaskRating);
 
+					
 					int index = Task.getTaskTypeIndex(TaskType.Conquer);
+					if(weaknessMod) {
+						thisTaskRating *= wmWeights[index];
+					}
 					if(thisTaskRating > highestTaskRatings[index]) {
 						highestTaskRatings[index] = thisTaskRating;
 						highestEntities[index] = targetShip;
@@ -177,10 +265,14 @@ public class LocalChecker {
 					}
 
 				}
-				thisTaskRating = compAttackScore(myShip, targetShip, dist, strongPlayer, weakPlayer);
+				thisTaskRating = compAttackScore(myShip, targetShip, dist, sPlayer, wPlayer);
 				//Log.log("LC:compute(),attackany ship " + targetShip.getId() + ", rating = " + thisTaskRating);
 
+				
 				int indexA = Task.getTaskTypeIndex(TaskType.AttackAny);
+				if(weaknessMod) {
+					thisTaskRating *= wmWeights[indexA];
+				}
 				if(thisTaskRating > highestTaskRatings[indexA]) {
 				highestTaskRatings[indexA] = thisTaskRating;
 				highestEntities[indexA] = targetShip;
@@ -192,8 +284,13 @@ public class LocalChecker {
 		if(nextEnemyShip == null) {
 			highestTaskRatings[Task.getTaskTypeIndex(TaskType.Diversion)] = -1;
 		} else {
+			if(weaknessMod) {
+				diversionThresh *= wmWeights[Task.getTaskTypeIndex(TaskType.Diversion)];
+			}
 			highestTaskRatings[Task.getTaskTypeIndex(TaskType.Diversion)] = diversionThresh;
 			highestEntities[Task.getTaskTypeIndex(TaskType.Diversion)] = nextEnemyShip;
+			
+
 
 		}
 		
@@ -234,14 +331,15 @@ public class LocalChecker {
 
 		double sizescore = (tPlanet.getRadius() / maxPlanetSize) * rWeights[REI_PL_SIZE_FACTOR_I];
 
-		
-		return  (dscore + capscore + sizescore)*0.5;
+		double mhscore = 1-(myShip.getHealth() / Constants.MAX_SHIP_HEALTH); //the lower the hp, the bigger the healthscore
+
+		return  (dscore + capscore + sizescore)*0.5 + 0.25*mhscore; //also depends on low health
 
 	}
 	
 	//EXP_RNG_FACTOR  EXP_PL_SIZE_FACTOR  EXP_PL_TARGETED_FACTOR 
 
-	private double compExpandScore(Ship myShip, Planet tPlanet, int numTargets, double distance) {
+	private double compExpandScore(Ship myShip, Planet tPlanet, int numTargets, double distance, boolean isInitPhase) {
 		double dscore;
 		double dist = myShip.getDistanceTo(tPlanet);
 		if(dist > maxRange) {
@@ -259,6 +357,9 @@ public class LocalChecker {
 			reiexpscore = 0;
 		} else {
 			reiexpscore = 1 - ((double) numTargets / (double) remainingProd);
+			if(isInitPhase) {
+				reiexpscore *= (wmWeights[Task.getTaskTypeIndex(TaskType.Reinforce)]/3);
+			}
 		}
 		//reiexpscore = reiexpscore * EXP_PL_TARGETED_FACTOR;
 		reiexpscore = reiexpscore * rWeights[EXP_PL_TARGETED_FACTOR_I];
@@ -266,7 +367,13 @@ public class LocalChecker {
 
 		double sizescore = (tPlanet.getRadius() / maxPlanetSize) * rWeights[EXP_PL_SIZE_FACTOR_I];
 
-		return  (dscore + reiexpscore + sizescore)*0.5;
+		double mhscore = 1-(myShip.getHealth() / Constants.MAX_SHIP_HEALTH);
+		
+		if(isInitPhase) {
+			return  (0.1*dscore + 0.8*reiexpscore + 0.1*sizescore)*0.8;
+		}
+		
+		return  (dscore + reiexpscore + sizescore)*0.5 + 0.25*mhscore;
 	}
 	private double compConquerScore(Ship myShip, Ship tShip, Planet dockedPlanet, double distance, boolean strongPlayer, boolean weakPlayer) {
 		double targetSpecFactor;
@@ -329,7 +436,7 @@ public class LocalChecker {
 	}
 	
 	
-	public Task getHighestTastPreferType(TaskType tt) {
+	public Task getHighestTaskPreferType(TaskType tt) {
 		int index = Task.getTaskTypeIndex(tt);
 		
 		//maybe no Task of this type exists
@@ -339,7 +446,7 @@ public class LocalChecker {
 
 		Entity targetEntity = highestEntities[index];
 
-		return new Task(myCurrentShip, currentGameMap, tt, targetEntity);
+		return new Task(myCurrentShip, currentGameMap, tt, targetEntity, noPaths);
 	}
 	
 	public double getHighestTaskScore() {
@@ -362,7 +469,7 @@ public class LocalChecker {
 			}
 		}
 		Entity targetEntity = highestEntities[highestTaskIndex];
-		return new Task(myCurrentShip, currentGameMap, Task.getTaskTypeByIndex(highestTaskIndex), targetEntity);
+		return new Task(myCurrentShip, currentGameMap, Task.getTaskTypeByIndex(highestTaskIndex), targetEntity, noPaths);
 	}
 	
 	
@@ -381,6 +488,19 @@ public class LocalChecker {
 		// TODO
 
 		return 0;
+	}
+
+	public Task getHighestDockTask() { //may also return an attack type if dock type scores are 0
+		double highestTaskScore = 0;
+		int highestTaskIndex = 0;
+		for(int i = 0; i < highestTaskRatings.length; i++) {
+			if(highestTaskRatings[i] > highestTaskScore && Task.getTaskTypeByIndex(i).isDockType()) {
+				highestTaskScore = highestTaskRatings[i];
+				highestTaskIndex = i;
+			}
+		}
+		Entity targetEntity = highestEntities[highestTaskIndex];
+		return new Task(myCurrentShip, currentGameMap, Task.getTaskTypeByIndex(highestTaskIndex), targetEntity, noPaths);
 	}
 	
 	/*

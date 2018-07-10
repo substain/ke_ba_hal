@@ -10,18 +10,19 @@ import java.util.Map;
 
 public class TournamentSelector {
 	
-	public static final int NUM_NGA_ROUNDS = 2;
-	public static final int NUM_GA_ROUNDS = 3;
-	public static final int PLAYERS_PER_GAME = 4;
+	//public static final int NUM_NGA_ROUNDS = 2; //initAtts.get(GAFileHandler.IPAM_MATCHES_EXT)
+	//public static final int NUM_GA_ROUNDS = 3; //initAtts.get(GAFileHandler.IPAM_MATCHES_TOURN)
 	public static final int NUM_INIT_ARGS = 1;
 	public static final int NUM_TEST_ARGS = 3;
 	public static final int NUM_CONT_ARGS = 0;
 	public static final int EXT_PLAYER_ARGS = 2;
 	
+	int populationSize;
+	int playersPerGame;
 
 	int currentRound;
 	ArrayList<String> currentBots;
-	ArrayList<String> safeBots;
+	ArrayList<String> batchBots;
 
 	HashMap<Integer, Integer> rankings;
 	LinkedList<Integer> winners;
@@ -31,14 +32,26 @@ public class TournamentSelector {
 	int batch;
 	boolean initRun;
 	//ArrayList<ArrayList<Double>> scores;
+	
+	ArrayList<Integer> initAtts;
+	long staticSeed;
 
 	/*
 	 * 
 	 */
 	public TournamentSelector(boolean initRun) { //is initrun if its the first round of an iteration - matchup file also may be empty
 
-		//get needed data		
+		//read init data from file, initialize current round, population size, players per game, ...
 		GAFileHandler ioHandler = new GAFileHandler();
+		ioHandler.readInit();
+		initAtts = ioHandler.getInitData();
+		staticSeed = ioHandler.getStaticSeed();
+		populationSize = initAtts.get(GAFileHandler.IPAM_POPSIZE)*8;
+		playersPerGame = 2;
+		if(initAtts.get(GAFileHandler.IPAM_PLAYERS) != GAFileHandler.IPAM_PL_2) {
+			playersPerGame = 4;
+		}
+
 		ioHandler.readGAITinfo();	
 		ArrayList<Integer> gaitinitinfo = ioHandler.getGaitInit();
 		iteration = gaitinitinfo.get(GAFileHandler.GAIT_I_IT);
@@ -49,10 +62,10 @@ public class TournamentSelector {
 		
 		if(initRun) {
 			if(iteration == -1 || batch == -1) {
-				System.out.println("initrun: IT BA finished");
+				//System.out.println("TS:initrun: IT BA finished");
 				return;
 			}
-			System.out.println("initRun!");
+			System.out.println("TS:<initRun>");
 			
 			if(iteration == 0 && batch == 0) {
 				GAFileHandler.resetRankingsFile(-1,-1);
@@ -69,55 +82,71 @@ public class TournamentSelector {
 			}
 		}
 		
-		safeBots = ioHandler.getSafeBots();
-
+		batchBots = ioHandler.getBatchBots();
+		int outputMode = initAtts.get(GAFileHandler.IPAM_OUTPUT_MODE);
 		int[] next = HaliteGenAlgo.getNextItBa(iteration, batch, numIterations, numBatches);
+		if(next[0] == -1 || next[1] == -1) { //last run
+			if(outputMode == GAFileHandler.IPAM_OM_ALL || outputMode == GAFileHandler.IPAM_OM_FINAL || outputMode == GAFileHandler.IPAM_OM_FIRST_FINAL) {
+				
+			}
+		}
 		if(next[0] == -1 || next[1] == -1 || (iteration == 0 && batch == 0)) {
 			noReplay = false;
 		}
 		
 		
-		currentBots = GAFileHandler.getBotNames(iteration, batch);
+		currentBots = GAFileHandler.getBotNames(populationSize, iteration, batch);
+		
+		boolean twoPlayer = false;
+		if(playersPerGame == 2) {
+			twoPlayer = true;
+		}
 
-		ArrayList<Match> currentMatches = ioHandler.readMatchup(GAFileHandler.CURRENT_LINE);
+		ArrayList<Match> currentMatches = ioHandler.readMatchup(GAFileHandler.CURRENT_LINE, twoPlayer);
 		currentRound = ioHandler.getMatchupLine();
-		System.out.println("after round = " + currentRound);
+		//System.out.println("TS:after round = " + currentRound);
 		
 		
 
 		if(initRun) {
 			nextMatches = currentMatches;
-			Match.printMatches(nextMatches);
-			ioHandler.createNextMatchesSh(nextMatches, HaliteGenAlgo.MATCHES_PER_EXT_ROUND, noReplay, safeBots); //uses matchup file
-			//System.out.println("tournamentselector: finished this it (initRound)");
+			int numRepeats = initAtts.get(GAFileHandler.IPAM_MATCHES_TOURN);
+			if(!nextMatches.isEmpty() && nextMatches.get(0).getType(1) != Match.TYPE_GA) {
+				initAtts.get(GAFileHandler.IPAM_MATCHES_EXT);
+			}
+			Match.printMatches(nextMatches, numRepeats);
+			ioHandler.createNextMatchesSh(populationSize, nextMatches, initAtts.get(GAFileHandler.IPAM_MATCHES_EXT), noReplay, batchBots, staticSeed); //uses matchup file
+			//System.out.println("TS: finished this it (initRound)");
 
 			return;
 		}
 		
 		
 		setResults(currentMatches); //creates rankings and writes to the rankings file
-		if(currentRound == (NUM_GA_ROUNDS + NUM_NGA_ROUNDS)-1) {
+		if(currentRound == (initAtts.get(GAFileHandler.IPAM_MATCHES_TOURN) + initAtts.get(GAFileHandler.IPAM_MATCHES_EXT))-1) {
 			GAFileHandler.clearMatchesSh();
-			//System.out.println("tournamentselector: finished this it (final round: " + currentRound + ")");
+			//System.out.println("TS: finished this it (final round: " + currentRound + ")");
 			return;
 		}
-		if(currentRound >= NUM_NGA_ROUNDS) {
+		if(currentRound >= initAtts.get(GAFileHandler.IPAM_MATCHES_EXT)) {
+			//System.out.println("TS: currentRound("+currentRound+") >= num ext matches("+initAtts.get(GAFileHandler.IPAM_MATCHES_EXT)+") -> updateMatchup, createNextMatchesSH");
+
 			//GAFileHandler.updateMatchupLine();
 
 			updateMatchup(); // sets nextMatches for next round (depends on winners)
-			ioHandler.createNextMatchesSh(nextMatches, HaliteGenAlgo.MATCHES_PER_TOURN_ROUND, noReplay, safeBots);
+			ioHandler.createNextMatchesSh(populationSize, nextMatches, initAtts.get(GAFileHandler.IPAM_MATCHES_TOURN), noReplay, batchBots, staticSeed);
 		} else { //first rounds: no need to update the whole matchup
 			GAFileHandler.updateMatchupLine(); //+1 for matchup line in the matchup file
-			nextMatches = ioHandler.readMatchup(currentRound+1); // get the corresponding 
-			if(currentRound +1 == NUM_NGA_ROUNDS) {
-				ioHandler.createNextMatchesSh(nextMatches, HaliteGenAlgo.MATCHES_PER_TOURN_ROUND, noReplay, safeBots);
+			nextMatches = ioHandler.readMatchup(currentRound+1, twoPlayer); // get the corresponding 
+			if(currentRound +1 == initAtts.get(GAFileHandler.IPAM_MATCHES_EXT)) { //this is the last round for ext matches
+				ioHandler.createNextMatchesSh(populationSize, nextMatches, initAtts.get(GAFileHandler.IPAM_MATCHES_TOURN), noReplay, batchBots, staticSeed);
 			} else {
-				ioHandler.createNextMatchesSh(nextMatches, HaliteGenAlgo.MATCHES_PER_EXT_ROUND, noReplay, safeBots);
+				ioHandler.createNextMatchesSh(populationSize, nextMatches, initAtts.get(GAFileHandler.IPAM_MATCHES_EXT), noReplay, batchBots, staticSeed);
 			}
 
 		}
 
-		//System.out.println("tournamentselector: finished this it (round: " + currentRound + ")");
+		//System.out.println("TS: finished this it (round: " + currentRound + ")");
 
 	}
 	
@@ -125,60 +154,98 @@ public class TournamentSelector {
 	
 	
 	private void setResults(ArrayList<Match> matches) { //creates rankings and writes to the rankings file
+
+		
 		if(matches.isEmpty()) {
 			//no matches last round 
 			winners = new LinkedList<>();
-			for(int i = 0; i < HaliteGenAlgo.NUM_INDV; i++) {
+			for(int i = 0; i < populationSize; i++) {
 				winners.add(i);
 			}
 			
 			rankings = new HashMap<>();
-			for(int i = 0; i < HaliteGenAlgo.NUM_INDV; i++) {
+			for(int i = 0; i < populationSize; i++) {
 				rankings.put(i, i);
 			}
 
-			System.out.println("warning: matches was empty!");
+			System.out.println("TS:no matches(keep winners/rankings)");
 			return;
 		}
 		winners = new LinkedList<>();
 		//System.out.println("setResults: matches.size" + matches.size());
 		
-		ArrayList<Integer> botIds = getBotIdsByMatches(matches);
-		int numPlayersLastMatch = botIds.size();
-		int numWinners = numPlayersLastMatch/2;
-		int numMatchRounds = numPlayersLastMatch/PLAYERS_PER_GAME;
-		int numMatchesPerBot = matches.size() / numMatchRounds;
 		
-		if(currentRound < NUM_NGA_ROUNDS) {	 //TODO
-			numPlayersLastMatch = HaliteGenAlgo.NUM_INDV;
-			numMatchesPerBot = matches.size() / (HaliteGenAlgo.NUM_INDV/2);
-			numWinners = HaliteGenAlgo.NUM_INDV;
+		
+		ArrayList<Integer> botIds = getBotIdsByMatches(populationSize,matches,playersPerGame);
+		int numPlayers = botIds.size();
+		int numWinners = numPlayers/2;
+		int numGroups = numPlayers/playersPerGame;
+		
+		int numMatchRepeats; 
+		//check if matchtype is ga or extern to determine numMatchRepeats
+		int matchtype = Match.TYPE_GA;
+		Match firstmatch = matches.get(0);
+		if(firstmatch.isFourPlayer()) { //4 PL match?
+			matchtype = firstmatch.getType(3);
+		} else {
+			matchtype = firstmatch.getType(1);
+		}
+		if(matchtype == Match.TYPE_GA) {
+			numMatchRepeats = initAtts.get(GAFileHandler.IPAM_MATCHES_TOURN);
+		} else {
+			numMatchRepeats = initAtts.get(GAFileHandler.IPAM_MATCHES_EXT);
 		}
 		
-		ArrayList<Double> scores = new ArrayList<>(numPlayersLastMatch);
+		System.out.println("setResults: nPlayers = "+numPlayers+", nWinners="+numWinners+", numGroups"+numGroups+", numMatchesPerBot"+numMatchRepeats);
+		
+		if(currentRound < initAtts.get(GAFileHandler.IPAM_MATCHES_EXT)) {	 //TODO
+			numPlayers = populationSize;
+			numWinners = populationSize;
+		}
+		
+		ArrayList<Double> scores = new ArrayList<>(numPlayers);
 
 		//System.out.println("numMatchesPerBot = " + numMatchesPerBot);
+		int ic = 0;
 		for(Integer i : botIds) {
-			LinkedList<Double> botScores = GAFileHandler.readBotScores(i, iteration, batch);
+			LinkedList<Double> botScores = GAFileHandler.readBotScores(populationSize, i, iteration, batch);
 			int botScoresSize = botScores.size();
 
 			LinkedList<Double> relevantScores = new LinkedList<Double>();
-			for(int j = 1; j == numMatchesPerBot; j++) { //only count relevant = lastScores
+			for(int j = 1; j <= numMatchRepeats; j++) { //only count relevant = lastScores
+				//System.out.println("sc"+j+" of "+ic+ " = " + botScores.get((botScoresSize)-j));
 				relevantScores.add(botScores.get((botScoresSize)-j));
 			}
-			scores.add(HaliteGenAlgo.getAverage(relevantScores));
+			//System.out.println("avgsc of "+ic+ " = " + HaliteGenAlgo.getAvgScore(relevantScores));
+
+			scores.add(HaliteGenAlgo.getAvgScore(relevantScores));
+			ic++;
 		}
-		
-		rankings = GAFileHandler.createRankings(botIds, scores, GAFileHandler.CURRENT_LINE, HaliteGenAlgo.NUM_INDV);
+		ArrayList<ArrayList<Integer>> groups = new ArrayList<>(numGroups);
+		int numGroupsAdded = 0;
+		for(Match m:matches) {
+			if(numGroupsAdded == numGroups) {
+				break;
+			}
+			ArrayList<Integer> gr = new ArrayList<>();
+			for(int i = 0; i < playersPerGame; i++) {
+				gr.add(m.getID(i));
+			}
+			groups.add(gr);
+			
+			numGroupsAdded++;
+			
+		}
+		rankings = GAFileHandler.createGroupOrderedRankings(populationSize, botIds, scores, GAFileHandler.CURRENT_LINE, populationSize, groups);
 		GAFileHandler.addRankings(rankings);
 
 
 		//int rcount = 0;
 		for(Map.Entry<Integer, Integer> me : rankings.entrySet()) {
-			//System.out.println("ranking at "+ me.getKey() + " is " + me.getValue());
+			System.out.println("ranking at "+ me.getKey() + " is " + me.getValue());
 		}
 
-		if(currentRound >= NUM_NGA_ROUNDS && currentRound < (NUM_NGA_ROUNDS+NUM_GA_ROUNDS-1)) { //winners needed
+		if(currentRound >= initAtts.get(GAFileHandler.IPAM_MATCHES_EXT) && currentRound < (initAtts.get(GAFileHandler.IPAM_MATCHES_EXT)+initAtts.get(GAFileHandler.IPAM_MATCHES_TOURN)-1)) { //winners needed
 			for(int i = 0; i < rankings.size(); i++) {
 				if(i < numWinners) { //get the ranking of index i, if its 
 					winners.add(rankings.get(i));
@@ -201,34 +268,39 @@ public class TournamentSelector {
 	}
 	
 
-	
+
 	private void updateMatchup() {//depends on winners
 		ArrayList<Match> matches = new ArrayList<>();
+		
+		//System.out.println("TS: update Matchup: creating winners-set, calculating next matches, GAFH:addMatchup");
 
-		int num_next_matches = winners.size()/4;
+		int num_next_matches = winners.size()/playersPerGame;
 		// PLAYERS_PER_GAME
 		//int num_winners = 2; // evtl nicht gebraucht
 		
 		// %winners.size();
 		
 		for(int i = 0; i < num_next_matches; i++) {
-			int[] players = new int[PLAYERS_PER_GAME];
-			for(int j = 0; j < PLAYERS_PER_GAME; j++) {
-				players[j] = winners.get(j+i*PLAYERS_PER_GAME);
+			int[] players = new int[playersPerGame];
+			for(int j = 0; j < playersPerGame; j++) {
+				players[j] = winners.get(j+i*playersPerGame);
 			}
-			matches.add(new Match(players[0], players[1], Match.TYPE_GA, players[2], Match.TYPE_GA, players[3], Match.TYPE_GA));			
+			if(playersPerGame==2) {
+				matches.add(new Match(players[0], players[1], Match.TYPE_GA));			
+			} else {
+				matches.add(new Match(players[0], players[1], Match.TYPE_GA, players[2], Match.TYPE_GA, players[3], Match.TYPE_GA));			
+			}
 		}
 		nextMatches = matches;
 		GAFileHandler.addMatchup(matches);
 
 	}
 
-
 	
-	private static ArrayList<Integer> getBotIdsByMatches(ArrayList<Match> matches){
-		ArrayList<Integer> bots = new ArrayList<>(HaliteGenAlgo.NUM_INDV);
+	private static ArrayList<Integer> getBotIdsByMatches(int popSize, ArrayList<Match> matches, int playersPerGame){
+		ArrayList<Integer> bots = new ArrayList<>(popSize);
 		for(Match m : matches) {
-			for(int i = 0; i < PLAYERS_PER_GAME; i++) {
+			for(int i = 0; i < playersPerGame; i++) {
 				if(!bots.contains(m.getID(i)) && m.getType(i) == Match.TYPE_GA) {
 					bots.add(m.getID(i));
 				}
@@ -246,6 +318,7 @@ public class TournamentSelector {
 		} else if(args.length == NUM_CONT_ARGS) {
 			new TournamentSelector(false);
 		}	else if(args.length == NUM_TEST_ARGS) {
+			System.out.println("test_TS");
 			GAFileHandler ioHandler = new GAFileHandler();
 			ioHandler.readGAITinfo();
 			
@@ -272,10 +345,10 @@ public class TournamentSelector {
 			scores.add(0.3);
 			scores.add(2.4);
 
-			HashMap<Integer, Integer> abc = GAFileHandler.createRankings(botIds,scores,GAFileHandler.CURRENT_LINE, HaliteGenAlgo.NUM_INDV);
-			for(Map.Entry<Integer, Integer> me : abc.entrySet()) {
-				System.out.println("key "+ me.getKey() + ": id" + me.getValue());
-			}
+			//HashMap<Integer, Integer> abc = GAFileHandler.createGroupOrderedRankings(16, botIds,scores,GAFileHandler.CURRENT_LINE, 16, groups);
+			//for(Map.Entry<Integer, Integer> me : abc.entrySet()) {
+			//	System.out.println("key "+ me.getKey() + ": id" + me.getValue());
+			//}
 		}  
 		
 

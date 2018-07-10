@@ -1,3 +1,3 @@
-scoretest -1 2 -1 2 1 
-2 GABot_A1_0 GABot_B1_0
-2 MyBot1.java ModifiedBot.java
+exp4run -1 5 -1 15 1 
+4 GABot_A4_0 GABot_B4_0 GABot_J4_0 GABot_L4_0
+0 

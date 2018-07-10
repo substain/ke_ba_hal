@@ -18,17 +18,16 @@ import java.util.Map;
 
 import genAlgo.GAFileHandler;
 
-
-
 public class ModifiedBot {
 	
-	public static final double PLANET_DOM_FACTOR = 0.2;
-	public static final double SHIP_DOM_FACTOR = 0.6;
+	public static final double PLANET_DOM_FACTOR = 0.15;
+	public static final double SHIP_DOM_FACTOR = 0.85;
 	public static final double MIN_DOM_VAL = 0.2;
 
 	public static final double DIST_RANGE_FACTOR = 2.5;
 	public static final boolean useBotID = true;
-
+	public static final int USE_PATHFINDING = 0;
+	
 	private static double distanceUnit;
 
 	
@@ -41,7 +40,7 @@ public class ModifiedBot {
         	usingBotID = true;
         }
         final GameMap gameMap = networking.initialize(botname);
-        
+        Log.log("Given Botname:" + botname);
         
         int myId = gameMap.getMyPlayerId();
         int gmWidth = gameMap.getWidth();
@@ -70,84 +69,134 @@ public class ModifiedBot {
     			Path fPath2 = Paths.get(dir.toString(), GAFileHandler.CFG_FOLDERNAME, GAFileHandler.SAFE_CFG_FOLDERNAME, botname + ".txt");
         		file = new File(fPath2.toString());
         		if(!file.exists()) {
-        			fileNotFound = true;
+        			Path fPath3 = Paths.get(dir.toString(), GAFileHandler.CFG_FOLDERNAME, GAFileHandler.PRESET_CFG_FOLDERNAME, botname + ".txt");
+            		file = new File(fPath3.toString());
+            		if(!file.exists()) {
+            			fileNotFound = true;
+            		}
         		}
 
     		}
-    		//Log.log("attribute file: " + !fileNotFound);
     		if(!fileNotFound) {
+        		Log.log("loading file..");
     			attributes =  GAFileHandler.readBotAttsByName(botname);
-            	//Log.log("Attribute file found and loaded.");
+            	Log.log("Attribute file found and loaded.");
     		}
 
         }
         if(!usingBotID || fileNotFound) {
-        	//Log.log("static ship distr");
-        	/*
+        	Log.log("using hardcoded ship distr");
+        	
 	        for(int i = 0; i < attributes.length; i++) {
-	        	attributes[i] = 0.1; //TODO CHANGE
-	        }*/
-	      //21 MyBot3
-		    attributes[0] = 0.5803125976743176;
-		    attributes[1] = 0.046003300352238506;
-		    attributes[2] = 0.17665620421171335;
-		    attributes[3] = 0.0364037598385752;
-		    attributes[4] = 0.1606241379231553;
-		         
+	        	attributes[i] = 0.5;
+	        }
+	      // 34, tournament submission1
+		    attributes[0] = 0.16128010237000992; //Distribution: ATTACKANY
+		    attributes[1] = 0.21018824112627071; //Distribution: CONQUER
+		    attributes[2] = 0.46385332518297434; //Distribution: EXPAND
+		    attributes[3] = 0.12759510912733688; //Distribution: REINFORCE
+		    attributes[4] = 0.03708322219340824; //Distribution: DIVERSION
+		        
+		    //these will change the global priority distribution
+		    attributes[5] = 0.16690335406074644; //MapDif-ShipDom: EXPAND
+		    attributes[6] = 0.13591316478026633; //MapDif-ShipDom: REINFORCE
+		    attributes[7] = 0.12230542706490301; //MapDif-ShipDom: ATTACKANY
+		    attributes[8] = 0.1400997689043241; //MapDif-ShipDom: CONQUER
+		    attributes[9] = 0.054442438832794676; //MapDif-ShipDom: DIVERSION
+
+		    attributes[10] = 0.07441911281969811; //MapDif-PlanetDomThresh: EXPAND
+		    attributes[11] = 0.006962784240112823; //MapDif-PlanetDomThresh: REINFORCE
+		    attributes[12] = 0.0800958169238448; //MapDif-PlanetDomThresh: ATTACKANY
+		    attributes[13] = 0.022786133860076697; //MapDif-PlanetDomThresh: CONQUER
+		    attributes[14] = 0.17731770491793555; //MapDif-PlanetDomThresh: DIVERSION
+
+		    attributes[15] = 0.018754293595297507; //PlanetDomThresh-Value
+
+		    //these are the weights used for local priority
+		    attributes[16] = 0.5422803038206806; //conquer range factor
+		    attributes[17] = 0.10470054470011947; //conquer myhealth factor
+		    attributes[18] = 0.754302248169142; //conquer d planet size factor
+		    attributes[19] = 0.1588282653750418; //attack range factor
+
+		    attributes[20] = 0.3478014825992751; //attack myhealth factor
+		    attributes[21] = 0.3864514726259606; //attack enemyhealth factor
+		    attributes[22] = 0.9788798341609057; //reinforce range factor
+		    attributes[23] = 0.7705577763951784; //reinforce planetsize factor
+		    attributes[24] = 0.39680445807168296; //reinforce planet full
+ 
+		    attributes[25] = 0.9337443865215; //expand range facctor
+		    attributes[26] = 0.005591313971846645; //expand planet size factor
+		    attributes[27] = 0.826340383829781; //expand planet targeted factor
 		    
-		    attributes[5] = 0.010796072792501105;
-		    attributes[6] = 0.10754372226464769;
-		    attributes[7] = 0.20395802689134113;
-		    attributes[8] = 0.2586096123823068;
-		    attributes[9] = 0.1291208823231525;
+		    //and additional "weakness weights" for local priority used when the player is in a "weak", unfortunate or initial state
+		    attributes[28] = 0.887538594366468; //localprio weakness factor: ATTACKANY
+		    attributes[29] = 0.10523846700036599; //localprio weakness factor: CONQUER
 
-		    attributes[10] = 0.10123385897589084;
-		    attributes[11] = 0.0863916292566951;
-		    attributes[12] = 0.052303964173575336;
-		    attributes[13] = 0.0058783615264336436;
-		    attributes[14] = 0.025008782108161508;
-
-		    attributes[15] = 0.019155087305294506;
-		    attributes[16] = 0.6761910266983268;
-		    attributes[17] = 0.2763319750287725;
-		    attributes[18] = 0.16527308394326368;
-		    attributes[19] = 0.31661848922604774;
-
-		    attributes[20] = 0.6124013939277902;
-
+		    attributes[30] = 0.9112920515179099; //localprio weakness factor: EXPAND
+		    attributes[31] = 0.8837209063672257; //localprio weakness factor: REINFORCE
+		    attributes[32] = 0.3832702474266323; //localprio weakness factor: DIVERSION
+		     
+		    
+		    attributes[33] = 0.12946162607416778; //global prio thresh
+		    attributes[34] = 0.4321168467813249; //map dif task change time
+		    
+		    attributes[35] = 0.6732232290439085; //mapDifChangeFactor
+		    attributes[36] = 0.7391295026134085; //attDistUnitFactor
+		    attributes[37] = 0.8389591290648059; //targetSpecificPlayer
+		    attributes[38] = 0.6568180408881218; //dockTypeHealthThr
+		    attributes[39] = 0.5321147616068685; //weaknessModThr used for the "weakness weights
+		    attributes[40] = 0.6; //pathfinding type
 
         }
         
         Log.log(attrSemantics(attributes, botname));
     
         double[] shipDistribution = new double[Control.NUM1ATTS];
-        
+
         for(int i = 0; i < shipDistribution.length; i++) {
-        	//Log.log("shipdistr("+i+"): " + Task.getTaskTypeByIndex(i).toString() + " : " + attributes[i]);
+        	//Log.log("shipdistr("+i+"): " + Task.getTasskTypeByIndex(i).toString() + " : " + attributes[i]);
         	shipDistribution[i] = attributes[i];
         }
         
         
         double[] mapDifValues = new double[Control.NUM2ATTSIZE];
-        
+
         for(int i = 0; i < mapDifValues.length; i++) {
         	//Log.log("mapDif("+i+"): " + MapDif.mapDifAttString(i) + " : " + attributes[i]);
         	mapDifValues[i] = attributes[i+Control.NUM1ATTS]-0.5;
         }
     	
-        double[] weights = new double[LocalChecker.NUM_LC_WEIGHTS];
-        for(int i = 0; i < weights.length; i++) {
-        	weights[i] = attributes[i+Control.NUM1ATTS+Control.NUM2ATTS];
+        double[] lcweights = new double[Control.NUM3ATTSIZE];
+        for(int i = 0; i < lcweights.length; i++) {
+        	lcweights[i] = attributes[i+Control.NUM2ATTS];
         }
-    	
-        double globalPrioThresh = attributes[Control.NUM3ATTS] * Control.GLOBAL_PRIO_FACTOR;
-        double mapDifTaskChangeTime = attributes[Control.NUM3ATTS+1];
-        double mapDifChangeFactor = attributes[Control.NUM3ATTS+2];
-        double attDistUnitFactor = attributes[Control.NUM3ATTS+3];
-        double targetSpecificPlayer = attributes[Control.NUM3ATTS+4]; 
-       
+        
+        double[] wmweights = new double[Control.NUM4ATTSIZE];
+        for(int i = 0; i < wmweights.length; i++) {
+        	wmweights[i] = attributes[i+Control.NUM3ATTS];
+        }
         
         
+    	Log.log("reading rest bot attributes");
+        //double globalPrioThresh = attributes[Control.NUM3ATTS] * Control.GLOBAL_PRIO_FACTOR;
+        double globalPrioThresh = attributes[Control.NUM4ATTS];
+
+        double mapDifTaskChangeTime = attributes[Control.NUM4ATTS+1];
+        double mapDifChangeFactor = attributes[Control.NUM4ATTS+2];
+        double attDistUnitFactor = attributes[Control.NUM4ATTS+3];
+
+        double targetSpecificPlayer = attributes[Control.NUM4ATTS+4]; 
+
+        double dockTypeHealthThr = attributes[Control.NUM4ATTS+5] * Constants.MAX_SHIP_HEALTH;
+        double weaknessModThr = attributes[Control.NUM4ATTS+6];
+        double pathfindingType = attributes[Control.NUM4ATTS+7];
+
+    	Log.log("finished reading atts!");
+    	boolean noPathfinding = true;
+    	if(pathfindingType > 0.5) {
+    		noPathfinding = false;
+    	}
+
 
         int numPlayers = gameMap.getAllPlayers().size();
         Map<Integer, Planet> lastKnownPlanets = gameMap.getAllPlanets();
@@ -164,7 +213,7 @@ public class ModifiedBot {
         
         final Control controller = new Control(myId, shipDistribution, mapDifTaskChangeTime, mapDifChangeFactor);
         controller.setGlobalDifThresh(globalPrioThresh);
-        final LocalChecker localPrio = new LocalChecker(myId, initRange, shipDistribution[Task.getTaskTypeIndex(TaskType.Diversion)], maxPlanetSize, targetSpecificPlayer, weights);
+        final LocalChecker localPrio = new LocalChecker(myId, initRange, shipDistribution[Task.getTaskTypeIndex(TaskType.Diversion)], maxPlanetSize, targetSpecificPlayer, lcweights, wmweights, weaknessModThr, noPathfinding);
 
         final Evaluator evaluator = new Evaluator(gameMap, botname);
         evaluator.setIteration(currentIt);
@@ -178,9 +227,16 @@ public class ModifiedBot {
              
         final ArrayList<Move> moveList = new ArrayList<>();
 
-        
+    	Log.log("start computing ships");
+    	
+    	int round = 0;
+    	
+    	
+    	Position anchorPos = null;
+    	boolean anchorPosSet = false;
+    	
         for (;;) {
-        	       	
+        	       	        	
         	moveList.clear();
             networking.updateMap(gameMap);
             mdif.update(gameMap, false);
@@ -197,11 +253,6 @@ public class ModifiedBot {
             controller.initRound(tasks);
 
             controller.setDynPossibleTasks(gameMap);
-
-
-            
-        	// ALL_PLANETS  ALL_OWNEDPLANETS ALL_ENEMYPLANETS  ALL_SHIPS ALL_ENEMYSHIPS 
-        	// OWNEDPLANETS_PERC MYSHIPS_PERC  MYPLANETS_PERC 
 
             
             //int myOwnedPlanetDif = mdif.getMyPlanetDif();
@@ -240,10 +291,10 @@ public class ModifiedBot {
             int weakestPlID = mdif.getWeakestEnemyPlID();
             
             // PLANET_DOM_FACTOR SHIP_DOM_FACTOR MIN_DOM_VAL
-            //Log.log("myOwnedShipsperc = " + myOwnedShipsPerc + "myOwnedPlanetsPerc = " + myOwnedPlanetsPerc + "myOwnedPlanetsPercDif = " + myOwnedPlanetsPercDif + "opotThresh" + opotThresh);
+            Log.log("myOwnedShipsperc = " + myOwnedShipsPerc + "myOwnedPlanetsPerc = " + myOwnedPlanetsPerc + "myOwnedPlanetsPercDif = " + myOwnedPlanetsPercDif + "opotThresh" + opotThresh);
             
-            double dominationFactor = myOwnedPlanetsPerc * PLANET_DOM_FACTOR + myOwnedShipsPerc * SHIP_DOM_FACTOR + MIN_DOM_VAL; //should be slowly increasing, with planets_owned and ownedShips/allships
-            double range = Math.min(gmWidth,  DIST_RANGE_FACTOR * distanceUnit * dominationFactor);
+            double dominationFactor = myOwnedPlanetsPerc * PLANET_DOM_FACTOR + myOwnedShipsPerc * SHIP_DOM_FACTOR; //should be slowly increasing, with planets_owned and ownedShips/allships
+            double range = Math.min(gmWidth,  DIST_RANGE_FACTOR * distanceUnit * Math.min(dominationFactor,MIN_DOM_VAL));
             localPrio.updateRange(range);
             
             //Log.log("domfactor = " + dominationFactor + ", range = " + range);
@@ -267,7 +318,7 @@ public class ModifiedBot {
 
         	//boolean[][] currentHitmap = hitmap; // this copy is updated with the ship positions computed this turn to avoid collisions
         	
-        	
+            
         	
         	//compute expected ship movements this turn, only using the last turns positions
         	HashMap<Integer, Position> expectedPositions = new HashMap<>();
@@ -276,10 +327,12 @@ public class ModifiedBot {
             	expectedPositions = estimateShipPositions(currentPostions, lastPositions);
             }
             
+            int remainingUnusedProd = getRemainingUsableProd(currentPlanets, myId);
+            
             HashMap<Integer, Integer> targetedPlanets = new HashMap<>(); //planets I want to go to
             Collection<Ship> shiplist = gameMap.getMyPlayer().getShips().values();
             ArrayList<Entity> myShipPositions = new ArrayList<>(shiplist.size()); //my ship positions that could collide with other ships
-            ArrayList<Entity> diversionObstructions = new ArrayList<>(shiplist.size());	 //my ship positions and enemy ship positions //NOT USED
+            ArrayList<Entity> diversionObstructions = new ArrayList<>(shiplist.size());	 //my ship positions and enemy ship positions //NOT USED!!!!!!
             ArrayList<Entity> obstructedPositions;
             
             for(Map.Entry<Integer, Position> mapentry : expectedPositions.entrySet()) {
@@ -290,14 +343,23 @@ public class ModifiedBot {
             
 //            int ship_id = 0;	
             //int ship_count = 0;
+            localPrio.initRound(gameMap, strongestPlID, weakestPlID);
 
-            
+            Log.log("evaluator: saving dominationFactor:" + dominationFactor);
+            evaluator.evaluateRoundDom(dominationFactor); //computes current score
+
             for (final Ship ship : shiplist) {
+            	
+                
+                if(round == 0 && ship.getId() == 0) {
+                	anchorPos = ship;
+                	anchorPosSet = true;
+                }
+                
             	//Log.log("debug: ship" + ship_count + ", id:" + ship.getId() + ", pos:" + ship.getXPos() +"|"+ ship.getYPos());
             	//ship_count++;
                 Map<Double, Entity> entities_by_dist = gameMap.nearbyEntitiesByDistance(ship);
-
-            	localPrio.compute(ship, entities_by_dist, targetedPlanets, gameMap, strongestPlID, weakestPlID);
+            	localPrio.compute(ship, entities_by_dist, targetedPlanets);
             	obstructedPositions = localPrio.getEntitiesInRange();
             	for(Entity e: myShipPositions) {
             		if(ship.getDistanceTo(e) <= Constants.FLY_RANGE )
@@ -307,9 +369,15 @@ public class ModifiedBot {
             	if(tasks.containsKey(ship.getId())) {
             		Task currentTask = tasks.get(ship.getId());
             		currentTask.update(gameMap, ship);
-            		TaskStatus currentStatus = currentTask.getStatus();
+            		TaskStatus currentStatus = currentTask.getStatus(dockTypeHealthThr, remainingUnusedProd);
             		if(currentStatus != TaskStatus.Invalid) {
             			
+            			if(currentTask.getType() == Task.TaskType.Dock) {
+                            if(!anchorPosSet) {
+                            	anchorPos = ship;
+                            	anchorPosSet = true;
+                            }
+            			}
 
             			if(currentTask.isShipTargetType() && expectedPositions.containsKey(currentTask.getTargetId())) {
             				currentTask.setEstimatedPos(expectedPositions.get(currentTask.getTargetId()));
@@ -321,7 +389,8 @@ public class ModifiedBot {
             				if(newDivTarget != null) {
                 				currentTask.updateTarget(localPrio.getDivTarget());
             				}
-                			currentTask.setObstructedPositions(diversionObstructions); //NOT USED
+            				currentTask.setAnchorPos(anchorPos);
+                			currentTask.setObstructedPositions(obstructedPositions); //NOT USED: diversionObstructions
 
             				currentTask.setFleePos(fleePos);
 
@@ -351,15 +420,19 @@ public class ModifiedBot {
             				if(move.getType() == MoveType.Thrust) { 	// SET OBSTRUCTED POSITIONS
             					ThrustMove tm = (ThrustMove) move;
             					Position thisExpectedPos = tm.getExpectedPosition(ship);
+            					
+            					myShipPositions.add(new Entity(-1, -1, thisExpectedPos.getXPos(),thisExpectedPos.getYPos(), 10, Constants.FORECAST_FUDGE_FACTOR));
+            					/*
             					int numParts = tm.getThrust();
             					double xPart = (thisExpectedPos.getXPos() - ship.getXPos())/numParts;
             					double yPart = (thisExpectedPos.getYPos() - ship.getYPos())/numParts;
 
+            				
             					for(int i = 0; i < numParts; i++) {
-                					myShipPositions.add(new Entity(-1, -1, ship.getXPos()+(xPart*i), thisExpectedPos.getYPos()+(yPart*i), 10, Constants.FORECAST_FUDGE_FACTOR2));
+                					myShipPositions.add(new Entity(-1, -1, ship.getXPos()+(xPart*i), ship.getYPos()+(yPart*i), 10, Constants.FORECAST_FUDGE_FACTOR));
                 					//diversionObstructions.add(new Entity(-1, -1, ship.getXPos()+(xPart*i), thisExpectedPos.getYPos()+(yPart*i), 10, Constants.FORECAST_FUDGE_FACTOR2));
-            					}
-
+            					} 
+            					*/
             				}
                         	
             				if(currentTask.getType() != TaskType.Dock) {
@@ -367,15 +440,27 @@ public class ModifiedBot {
             				}
                    
             				if(currentStatus == TaskStatus.WillDock) {
-            					newTasks.put(ship.getId(), new Task(ship, gameMap, TaskType.Dock, currentTask.getTarget()));
+            					newTasks.put(ship.getId(), new Task(ship, gameMap, TaskType.Dock, currentTask.getTarget(), noPathfinding));
             				} else {
                 				newTasks.put(ship.getId(), currentTask);
             				}
                 			continue;
             			}
             		} else {
+            			
+        				if(currentTask.getType() == TaskType.Dock) {
+            				tasks.remove(ship.getId());
+                        	Move move = new UndockMove(ship);
+
+            				moveList.add(move);
+            				continue;
+
+        				}
+            			
         				controller.decreaseShipNum(currentTask.getType());
         				tasks.remove(ship.getId());
+        				
+        				
             		}
             	}
             	
@@ -383,31 +468,39 @@ public class ModifiedBot {
             	
             	// ########## COMPUTE NEW TASKS ###############
 
-            	
-
-            	
             	Task nTask;
             	Move move;
-            	if(controller.isWithinGlobalDifThresh()) {
+            	if(controller.isWithinGlobalDifThresh(round)) {
           
                 	//Log.log("within global dif thresh -> local prio");
+            		if(ship.getHealth() <= (int) dockTypeHealthThr ) {
+                		nTask = localPrio.getHighestDockTask();
 
-            		nTask = localPrio.getHighestTask();
+             		} else {
+                		nTask = localPrio.getHighestTask();
+             			
+             		}
 
-                  	if(nTask.getTarget() == null) {
-                	}
+                  	//if(nTask.getTarget() == null) {
+                	//}
             		controller.increaseShipNum(nTask.getType());
             	} else {
             		
                 	//Log.log("exceed global dif thresh -> global prio");
+            		TaskType t;
+            		if(ship.getHealth() <= (int) dockTypeHealthThr ) {
+                    	t = controller.getNextDockTypeAndUpdate();
 
-                	TaskType t = controller.getNextTypeAndUpdate();
+             		} else {
+                    	t = controller.getNextTypeAndUpdate();
+             			
+             		}
                 	//Log.log("wanted type: " + t.toString());
 
-            		nTask = localPrio.getHighestTastPreferType(t);
+            		nTask = localPrio.getHighestTaskPreferType(t);
 
-                	if(nTask.getTarget() == null) {
-                	}
+                	//if(nTask.getTarget() == null) {
+                	//}
             	}
             	//Log.log("Got new Task for " + ship.getId() + ", nTask = " + nTask.getType().toString());
             	Entity ntTarget = nTask.getTarget();
@@ -468,7 +561,7 @@ public class ModifiedBot {
         				ThrustMove tm = (ThrustMove) move;
     					Position thisExpectedPos = tm.getExpectedPosition(ship);
     					//currentHitmap[expectedX][expectedY] = true;
-    					myShipPositions.add(new Entity(-1, -1, thisExpectedPos.getXPos(), thisExpectedPos.getYPos(), 10, Constants.FORECAST_FUDGE_FACTOR_S));
+    					myShipPositions.add(new Entity(-1, -1, thisExpectedPos.getXPos(), thisExpectedPos.getYPos(), 10, Constants.FORECAST_FUDGE_FACTOR2));
     					//diversionObstructions.add(new Entity(-1, -1, thisExpectedPos.getXPos(), thisExpectedPos.getYPos(), 10, Constants.FORECAST_FUDGE_FACTOR_S));
     				}
 
@@ -489,8 +582,10 @@ public class ModifiedBot {
         	}
         	*/
             tasks = newTasks;
+            anchorPosSet = false;
 //            rounds++;
             Networking.sendMoves(moveList);
+            round++;
         }
     }
 
@@ -668,7 +763,7 @@ public class ModifiedBot {
     }
 
     
-    static String attrSemantics(double[] attributes, String botname) {
+    public static String attrSemantics(double[] attributes, String botname) {
     	String result = "Bot '"+botname+"' config:";
     
     	result += "Ship distribution (initial):";
@@ -676,35 +771,223 @@ public class ModifiedBot {
 			result += "\n";
 			result +=  Task.getTaskTypeByIndex(i).toString() + ":"+ (attributes[i] * 100) + "%,";
         }
-        
+		result += "\n";
         result += "Map change effects:";
-        for(int i = Control.NUM1ATTS; i < Control.NUM1ATTS+Control.NUM2ATTSIZE; i++) {
+        for(int i = Control.NUM1ATTS; i < Control.NUM2ATTS; i++) {
 			result += "\n";
 			result += MapDif.mapDifAttString(i) + ":"+ (attributes[i+Control.NUM1ATTS]-0.5);
-			
-			
-			if(i < Control.NUM1ATTS + MapDif.NUM_MOP_ATTS) {
-				//
-				result += " ";
-			}
-			else if(i < Control.NUM1ATTS + MapDif.NUM_MOP_ATTS + MapDif.NUM_OPOT_ATTS) {
-			
-			} else if(i == Control.NUM1ATTS + MapDif.NUM_MOP_ATTS + MapDif.NUM_OPOT_ATTS) {
+			/*
+			switch(i) {
+			//myOwnedPlanets/allOwnedPlanets
+				case Control.NUM1ATTS+MapDif.MOP_CH_EXP:{
+					result += " changes to expand ship distribution(caused by changes in myOwnedPlanets/allOwnedPlanets)";
+					break;
+				}
+				case Control.NUM1ATTS+MapDif.MOP_CH_REI:{
+					result += " changes to reinforce ship distribution(caused by changes in myOwnedPlanets/allOwnedPlanets)";
+
+					break;
+				}
+				case Control.NUM1ATTS+MapDif.MOP_CH_ATT:{
+					result += " changes to attack ship distribution(caused by changes in myOwnedPlanets/allOwnedPlanets)";
+
+					break;
+				}
+				case Control.NUM1ATTS+MapDif.MOP_CH_CON:{
+					result += " changes to conquer ship distribution(caused by changes in myOwnedPlanets/allOwnedPlanets)";
+
+					break;
+				}
+				case Control.NUM1ATTS+MapDif.MOP_CH_DIV:{
+					result += " changes to diversion ship distribution(caused by changes in myOwnedPlanets/allOwnedPlanets)";
+
+					break;
+				}
 				
+				//for changes when allOwnedPlanets/allPlanets is over a threshold
+				case Control.NUM1ATTS+MapDif.OPOT_CH_EXP:{
+					result += " changes to expand ship distribution(caused by crossing a threshold of allOwnedPlanets/allUnownedPlanets)";
+
+					break;
+				}
+				case Control.NUM1ATTS+MapDif.OPOT_CH_REI:{
+					result += " changes to reinforce ship distribution(caused by crossing a threshold of allOwnedPlanets/allUnownedPlanets)";
+
+					break;
+				}
+				case Control.NUM1ATTS+MapDif.OPOT_CH_ATT:{
+					result += " changes to attack ship distribution(caused by crossing a threshold of allOwnedPlanets/allUnownedPlanets)";
+
+					break;
+				}
+				case Control.NUM1ATTS+MapDif.OPOT_CH_CON:{
+					result += " changes to conquer ship distribution(caused by crossing a threshold of allOwnedPlanets/allUnownedPlanets)";
+
+					break;
+				}
+				case Control.NUM1ATTS+MapDif.OPOT_CH_DIV:{
+					result += " changes to diversion ship distribution(caused by crossing a threshold of allOwnedPlanets/allUnownedPlanets)";
+
+					break;
+				}
 				
-			} else {
-				
-				
-			}
+				//OPOT_THRESH_V
+				case Control.NUM1ATTS+MapDif.OPOT_THRESH_V:{
+					result += " threshold of allOwnedPlanets/allUnownedPlanets, will distribution changes";
+
+					break;
+				}
+				default:{
+					result += "?attribute error?";
+
+					break;
+				}
+				*/
+			  //}
         }
     	//Log.log("mapDif("+i+"): " + MapDif.mapDifAttString(i) + " : " + attributes[i]);
 
-        result += "Weights for changes are:";
-        for(int i = Control.NUM1ATTS+Control.NUM2ATTS; i < Control.NUM1ATTS+Control.NUM2ATTSIZE; i++) {
-			result += "\n";
-			result +=  Task.getTaskTypeByIndex(i).toString() + ":"+ (attributes[i] * 100) + "%,";
+        result += "\n";
+        result += "Weights for local changes are:";
+        for(int i = Control.NUM2ATTS; i < Control.NUM3ATTS; i++) {
+			result += "\n" + attributes[i];
+			switch(i) {
+				case Control.NUM2ATTS+LocalChecker.CON_RNG_FACTOR_I:{
+					result += " : how much distance affects conquer priority";
+					break;
+				}
+				case Control.NUM2ATTS+LocalChecker.CON_MYHEALTH_FACTOR_I:{
+					result += " : how much shiphealth affects conquer priority";
+					break;
+				}
+				case Control.NUM2ATTS+LocalChecker.CON_DP_SIZE_FACTOR_I:{
+					result += " : how much planet radius affects conquer priority";
+
+					break;
+				}
+				
+				case Control.NUM2ATTS+LocalChecker.ATT_RNG_FACTOR_I:{
+					result += " : how much distance affects attack priority";
+					break;
+				}
+				case Control.NUM2ATTS+LocalChecker.ATT_MYHEALTH_FACTOR_I:{
+					result += " : how much shiphealth affects attack priority";
+					break;
+				}
+				case Control.NUM2ATTS+LocalChecker.ATT_ENEMHEALTH_FACTOR_I:{
+					result += " : how much enemy shiphealth affects attack priority";
+
+					break;
+				}
+
+				case Control.NUM2ATTS+LocalChecker.REI_RNG_FACTOR_I:{
+					result += " : how much distance affects reinforce priority";
+					break;
+				}
+				case Control.NUM2ATTS+LocalChecker.REI_PL_SIZE_FACTOR_I:{
+					result += " : how much the planets size affects reinforce priority";
+					break;
+				}
+				case Control.NUM2ATTS+LocalChecker.REI_PL_FULL_FACTOR_I:{
+					result += " : how much the dock space remaining affects reinforce priority";
+					break;
+				}
+				
+				case Control.NUM2ATTS+LocalChecker.EXP_RNG_FACTOR_I:{
+					result += " : how much distance affects expand priority";
+					break;
+				}
+				case Control.NUM2ATTS+LocalChecker.EXP_PL_SIZE_FACTOR_I:{
+					result += " : how much the planets size affects expand priority";
+					break;
+				}
+				case Control.NUM2ATTS+LocalChecker.EXP_PL_TARGETED_FACTOR_I:{
+					result += " : how much the amount of other own ships targetting a planet affects expand priority";
+
+					break;
+				}
+				default:{
+					result += "?attribute error?";
+
+					break;
+				}
+			}
+				
+			  //}
+			
         }
         
+        result += "\n";
+        result += "Weights for weakness changes are:";
+        for(int i = Control.NUM3ATTS; i < Control.NUM4ATTS; i++) {
+			result += "\n";
+			result +=  Task.getTaskTypeByIndex((i-Control.NUM3ATTS)).toString() + ":"+ (attributes[i] * 100) + "%,";
+        }
+        
+        final int unspecAttStart = Control.NUM4ATTS;
+
+		result += "\n Unspecified Attributes:";
+        if(attributes.length != Control.NUM4ATTS+Control.NUM_UNSPEC_ATTS) {
+        	result += "-- WARNING -- numUnspecAttEnd("+(unspecAttStart+Control.NUM_UNSPEC_ATTS)+") != attributes.length("+attributes.length+")\n";
+        }
+        for(int i = unspecAttStart; i < attributes.length; i++) {
+			result += "\n";
+			result += attributes[i];
+        	switch(i) {
+				case unspecAttStart:{ //globalPrioThresh
+					result += " threshold to use global prio instead of local";
+	
+					break;
+				}
+				case (unspecAttStart+1):{ //mapDifTaskChangeTime
+					result += " time used to apply changes in the distribution";
+	
+					break;
+				}
+				case unspecAttStart+2:{ //mapDifChangeFactor
+					result += " MapDif change factor";
+	
+					break;
+				}
+				case unspecAttStart+3:{ //attDistUnitFactor
+					result += " distance factor";
+	
+					break;
+				}
+				case unspecAttStart+4:{ //targetSpecificPlayer
+					if(attributes[i] > 0.5) {
+					result += " greater than 0.5, prioritize stronger players";
+					}
+					else if(attributes[i] > 0.5) {
+							result += " lower than 0.5, prioritize weaker players";
+					}
+	
+	
+					break;
+				}
+				case unspecAttStart+5:{ //dockTypeHealthThr
+					result += " threshold for ships to stop attacking";
+					break;
+				}
+				case unspecAttStart+6:{ //weaknessModThr
+					result += " threshold of how weak is okay";
+					break;
+				}
+				case unspecAttStart+7:{ //pathfindingType
+					if(attributes[i] > 0.5) {
+					result += " greater than 0.5, use ShadowPathFinding";
+					}
+					else if(attributes[i] > 0.5) {
+							result += " lower than 0.5, use initial Pathfinding";
+					}
+					break;
+				}
+				default:{
+					result += "?attribute error?";
+        		}
+        	}
+        	
+        }
         /*
         double[] mapDifValues = new double[Control.NUM2ATTSIZE];
         for(int i = 0; i < mapDifValues.length; i++) {
@@ -721,10 +1004,27 @@ public class ModifiedBot {
         double mapDifChangeFactor = attributes[Control.NUM3ATTS+2];
         double attDistUnitFactor = attributes[Control.NUM3ATTS+3];
         double targetSpecificPlayer = attributes[Control.NUM3ATTS+4]; 
-       
+       //        double dockTypeHealthThr = attributes[Control.NUM3ATTS+5] * Constants.MAX_SHIP_HEALTH;
+
     	
     	*/
     	return result;
+    }
+    
+    public static int getRemainingUsableProd(Map<Integer, Planet> planets, int myId) {
+
+    	int sumProduction = 0;
+    	
+    	
+        for(Map.Entry<Integer, Planet> entry : planets.entrySet()) {
+        	Planet planet = entry.getValue();
+        	if(!planet.isOwned() || planet.getOwner() == myId) {
+        		sumProduction += planet.getRemainingProduction();
+        	}
+        }
+    	
+		return sumProduction;
+    	
     }
 
     

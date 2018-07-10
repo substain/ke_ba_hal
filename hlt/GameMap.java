@@ -4,6 +4,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+
+import hlt.Ship.DockingStatus;
+
 import java.util.Collections;
 import java.util.Collection;
 
@@ -89,42 +92,59 @@ public class GameMap {
         return allShipsUnmodifiable;
     }
 
-    public ArrayList<Entity> objectsBetween(Position start, Position target) {
+    public ArrayList<Entity> objectsBetween(Position start, Position target, boolean tryShips, ArrayList<Entity> obstructedPos, int myID) {
         final ArrayList<Entity> entitiesFound = new ArrayList<>();
 
-        addEntitiesBetween(entitiesFound, start, target, planets.values());
-        addEntitiesBetween(entitiesFound, start, target, allShips);
+        
+        addEntitiesBetween(entitiesFound, start, target, planets.values(), true, myID);
 
-        return entitiesFound;
-    }
-    
-    public ArrayList<Entity> objectsBetween2(Position start, Position target, ArrayList<Entity> obstructedPos) {
-    	//Log.log("GameMap: checking: objectsBetween2");
-
-        final ArrayList<Entity> entitiesFound = new ArrayList<>();
-
-      
-        addEntitiesBetween(entitiesFound, start, target, planets.values());
-        if(!obstructedPos.isEmpty()) {
+        if(!obstructedPos.isEmpty() || obstructedPos == null) {
         	//Log.log("obstructed Pos not empty!");
-            addEntitiesBetween(entitiesFound, start, target, obstructedPos);
+            addEntitiesBetween(entitiesFound, start, target, obstructedPos, true, myID);
         } else {
         	//Log.log("obstructed Pos is empty!");
         }
-        addEntitiesBetween(entitiesFound, start, target, allShips);
+        
+        if(tryShips) {
+            addEntitiesBetween(entitiesFound, start, target, allShips, true, myID);
+        }
+        
+		for(Entity ent : entitiesFound) {
+			String objType = "Entity?=";
+			if (ent instanceof Planet) {
+				objType = "Planet=";
+			}
+			if (ent instanceof Ship) {
+				objType = "Ship=";
+			}
+			//Log.log("found obj betw: " + objType + ent.getXPos() + "/" + ent.getYPos() + ", r=" + ent.getRadius());
 
+
+
+
+
+		}
         return entitiesFound;
     }
+   
 
 
     private static void addEntitiesBetween(final List<Entity> entitiesFound,
                                            final Position start, final Position target,
-                                           final Collection<? extends Entity> entitiesToCheck) {
+                                           final Collection<? extends Entity> entitiesToCheck, boolean targetIsPosition, int myId) {
 
         for (final Entity entity : entitiesToCheck) {
-            if (entity.equals(start) || entity.equals(target)) {
+        	
+            if (entity.equals(start) || (entity.equals(target)&&!targetIsPosition)) {
                 continue;
             }
+            /*
+			if (entity instanceof Ship) {
+				Ship obsShip = (Ship) entity;
+				if(obsShip.getId() == myId && obsShip.getDockingStatus() == DockingStatus.Undocked) {
+					continue;
+				}
+			} */
             if (Collision.segmentCircleIntersect(start, target, entity, Constants.FORECAST_FUDGE_FACTOR)) {
                 entitiesFound.add(entity);
             }

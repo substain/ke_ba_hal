@@ -1,0 +1,33 @@
+10 Argumente, Reihenfolge:
+
+ga_type n_players pop_size_factor init_att_type matchrepeat_ext matchrepeat_gabots output_mode num_mutations mutation_chance custom_seed
+
+	public static final int INIT_PARAMETERS = 8;
+
+	//parameter order:
+	public static final int IPAM_GA_TYPE = 0; //[0]: standard, [1]: mixed (old/new) [2]:continue (old)
+	public static final int IPAM_PLAYERS = 1; //MUST BE [2] or [4] Players
+	public static final int IPAM_POPSIZE = 2; //8*[1..X]
+	public static final int IPAM_INIT_ATT_TYPE = 3; //[0]:random [1]:Q-Weighted [2] Distributed
+	public static final int IPAM_MATCHES_EXT = 4; //count of repetitions of [GA vs EXT] or [GA vs SB]
+	public static final int IPAM_MATCHES_TOURN = 5; //count of repetitions of [GA vs GA]
+	public static final int IPAM_OUTPUT_MODE = 6; //which iterations use output (none, first x final, all)
+	public static final int IPAM_NUM_MUTATIONS = 7; // maximum number of child mutations
+	public static final int IPAM_MUTATION_CHANCE = 8; // chance for a child to mutate
+	public static final int IPAM_USE_CUSTOM_SEED = 9; // -s / Seed argument for GA runs on only one maps
+
+	//IPAM_INIT_ATT_TYPEs
+	public static final int IPAM_IAT_RANDOM = 0;
+	public static final int IPAM_IAT_QW = 1;
+	public static final int IPAM_IAT_EQDIST = 2;
+
+	//IPAM_PLAYERS
+	public static final int IPAM_PL_2 = 0;
+	public static final int IPAM_PL_4 = 1;
+	
+	//IPAM_OUTPUT_MODEs
+	public static final int IPAM_OM_NONE = 0;
+	public static final int IPAM_OM_FINAL = 1;
+	public static final int IPAM_OM_FIRST_FINAL = 2;
+	public static final int IPAM_OM_FIRST = 3;
+	public static final int IPAM_OM_ALL = 4;

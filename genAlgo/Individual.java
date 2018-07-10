@@ -40,13 +40,40 @@ public class Individual {
 	}
 
 	public void mutateDistr() {
+		double willCreepMut = HaliteGenAlgo.randNum.nextDouble();
+		double newValue = 0.0d;
 		int chosenAttribute = HaliteGenAlgo.randNum.nextInt(attributes.length);
-		double newValue = HaliteGenAlgo.randNum.nextDouble();
+		double targetValue = attributes[chosenAttribute];
+		if(willCreepMut <= HaliteGenAlgo.PRESET_CREEPMUT_CHANCE) {
+			
+			//set interval [-negrange, posrange], also check for max/min value of the attribute before, instead of clipping (probability issues)
+			double posrange = 0.5*HaliteGenAlgo.PRESET_CREEPMUT_INTERV;
+			double negrange = posrange;
+			if(targetValue+posrange > 1.0) {
+				posrange = 1.0-targetValue;
+			}
+			if(targetValue-negrange < 0.0) {
+				negrange = targetValue;
+			}
+			
+			//compute stepsize of the creep
+			double creepVal = (HaliteGenAlgo.randNum.nextDouble()*(negrange+posrange))-negrange;
+			//add creep to old value
+			newValue = targetValue + creepVal;
+			System.out.println("used creep on attr ["+chosenAttribute+"] = "+newValue +" (old: "+targetValue+")");
+
+			
+		} else {
+			newValue = HaliteGenAlgo.randNum.nextDouble();
+
+		}
 		attributes[chosenAttribute] = newValue;
 		attributes = normalizeA(attributes);
 	}
 	
 	public static Individual recombineDistr(Individual p1, Individual p2) {
+		boolean useAvgOnBoth = true;
+		boolean useAvgOnFirst = true;
 		double[] p1atts = p1.getAttributes();
 		double[] p2atts = p2.getAttributes();
 
@@ -57,10 +84,35 @@ public class Individual {
 
 			boolean takeP1atts = HaliteGenAlgo.randNum.nextBoolean();
 
+
 			if((takeP1atts && attsFromP1 > 0) || attsFromP2 == 0) {
+				
+				if(useAvgOnBoth || useAvgOnFirst) { //CHECK FOR AVG CROSSOVER CHANCE, MAKE SURE [NOT_AVGCROSS_PICKS] ARE EQUAL
+					double useAvgCrossover = HaliteGenAlgo.randNum.nextDouble();
+					if(useAvgCrossover < HaliteGenAlgo.PRESET_AVGCROSS_CHANCE) {
+						useAvgOnBoth = !useAvgOnBoth;
+						useAvgOnFirst = false;
+						childAtts[i] = (p1atts[i]+p2atts[i])*0.5d;
+						System.out.println("used avgcrossover on attr ["+i+"] = "+childAtts[i] +" (P1TURN)");
+						continue;
+					}
+				}
+				
 				childAtts[i] = p1atts[i];
 				attsFromP1--;
+
 			} else {
+				if(useAvgOnBoth || !useAvgOnFirst) { //CHECK FOR AVG CROSSOVER CHANCE, MAKE SURE [NOT_AVGCROSS_PICKS] ARE EQUAL
+					double useAvgCrossover = HaliteGenAlgo.randNum.nextDouble();
+					if(useAvgCrossover < HaliteGenAlgo.PRESET_AVGCROSS_CHANCE) {
+						useAvgOnBoth = !useAvgOnBoth;
+						useAvgOnFirst = true;
+						childAtts[i] = (p1atts[i]+p2atts[i])*0.5d;
+						System.out.println("used avgcrossover on attr ["+i+"] = "+childAtts[i] +" (P2TURN)");
+						continue;
+					}
+				}
+				
 				childAtts[i] = p2atts[i];
 				attsFromP2--;
 			}

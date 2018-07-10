@@ -1,0 +1,36 @@
+#############################
+#############################
+StartTime
+Do, 28. Jun 2018 15:38:03
+#############################
+######### Analysis ##########
+#############################
+HaliteGenAlgo:Analysis Run
+rankings of the last run:
+avg attribute difference diversities:
+first population: 0.23650356060378536, lastPopulation: 0.08823332456420035, difference: -0.148270236039585
+clearing bot scores, creating matchup files: 2x A-matches, 2x B-matches, 2x C-matches.
+GAFH:creating A-matchup sh file
+GAFH:creating B-matchup sh file
+GAFH:creating C-matchup sh file
+GAFH: done creating abc matchup sh files
+Time before A-Matches:
+Do, 28. Jun 2018 15:38:05
+Time after A-Matches:
+Do, 28. Jun 2018 15:43:01
+HaliteGenAlgo:continuing Analysis Run
+saving output data to file: t_A.txt
+clearing score folders
+Time after B-Matches:
+Do, 28. Jun 2018 15:47:42
+HaliteGenAlgo:continuing Analysis Run
+saving output data to file: t_B.txt
+clearing score folders
+Time after C-Matches:
+Do, 28. Jun 2018 15:52:46
+HaliteGenAlgo:continuing Analysis Run
+saving output data to file: t_C.txt
+#############################
+Time After Analysis
+Do, 28. Jun 2018 15:52:47
+######### finished. #########

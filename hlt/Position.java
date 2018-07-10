@@ -49,6 +49,8 @@ public class Position {
         final double x = target.getXPos() + radius * Math.cos(angleRad);
         final double y = target.getYPos() + radius * Math.sin(angleRad);
 
+        //Log.log("closest Position computed(from [" + this.xPos+ "|"+ this.yPos +"] to [" + target.getXPos()+"|"+target.getYPos()+"]) = [" + x+ "|" + y + "]");
+        
         return new Position(x, y);
     }
 

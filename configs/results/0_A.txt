@@ -1,0 +1,134 @@
+A-Matches (first vs final population) results:
+>>> first population:
+won matches
+GABot_A0_0: wins = 0(of 0), score-sum = 0.0
+botscores:
+
+won matches
+GABot_A0_1: wins = 0(of 0), score-sum = 0.0
+botscores:
+
+won matches
+GABot_A0_2: wins = 0(of 0), score-sum = 0.0
+botscores:
+
+won matches
+GABot_A0_3: wins = 0(of 0), score-sum = 0.0
+botscores:
+
+won matches
+GABot_A0_4: wins = 0(of 0), score-sum = 0.0
+botscores:
+
+won matches
+GABot_A0_5: wins = 0(of 0), score-sum = 0.0
+botscores:
+
+won matches
+GABot_A0_6: wins = 0(of 0), score-sum = 0.0
+botscores:
+
+won matches
+GABot_A0_7: wins = 0(of 0), score-sum = 0.0
+botscores:
+
+won matches
+GABot_A0_8: wins = 0(of 0), score-sum = 0.0
+botscores:
+
+won matches
+GABot_A0_9: wins = 0(of 0), score-sum = 0.0
+botscores:
+
+won matches
+GABot_A0_10: wins = 0(of 0), score-sum = 0.0
+botscores:
+
+won matches
+GABot_A0_11: wins = 0(of 0), score-sum = 0.0
+botscores:
+
+won matches
+GABot_A0_12: wins = 0(of 0), score-sum = 0.0
+botscores:
+
+won matches
+GABot_A0_13: wins = 0(of 0), score-sum = 0.0
+botscores:
+
+won matches
+GABot_A0_14: wins = 0(of 0), score-sum = 0.0
+botscores:
+
+won matches
+GABot_A0_15: wins = 0(of 0), score-sum = 0.0
+botscores:
+
+>>> final population:
+won matches
+GABot_@-1_0: wins = 0(of 0), score-sum = 0.0
+botscores:
+
+won matches
+GABot_@-1_1: wins = 0(of 0), score-sum = 0.0
+botscores:
+
+won matches
+GABot_@-1_2: wins = 0(of 0), score-sum = 0.0
+botscores:
+
+won matches
+GABot_@-1_3: wins = 0(of 0), score-sum = 0.0
+botscores:
+
+won matches
+GABot_@-1_4: wins = 0(of 0), score-sum = 0.0
+botscores:
+
+won matches
+GABot_@-1_5: wins = 0(of 0), score-sum = 0.0
+botscores:
+
+won matches
+GABot_@-1_6: wins = 0(of 0), score-sum = 0.0
+botscores:
+
+won matches
+GABot_@-1_7: wins = 0(of 0), score-sum = 0.0
+botscores:
+
+won matches
+GABot_@-1_8: wins = 0(of 0), score-sum = 0.0
+botscores:
+
+won matches
+GABot_@-1_9: wins = 0(of 0), score-sum = 0.0
+botscores:
+
+won matches
+GABot_@-1_10: wins = 0(of 0), score-sum = 0.0
+botscores:
+
+won matches
+GABot_@-1_11: wins = 0(of 0), score-sum = 0.0
+botscores:
+
+won matches
+GABot_@-1_12: wins = 0(of 0), score-sum = 0.0
+botscores:
+
+won matches
+GABot_@-1_13: wins = 0(of 0), score-sum = 0.0
+botscores:
+
+won matches
+GABot_@-1_14: wins = 0(of 0), score-sum = 0.0
+botscores:
+
+won matches
+GABot_@-1_15: wins = 0(of 0), score-sum = 0.0
+botscores:
+
+######### matches0(final) /0(first) ###########
+first population overall wins = 0(of 0), score-sum = 0.0
+final population overall wins = 0(of 0), score-sum = 0.0

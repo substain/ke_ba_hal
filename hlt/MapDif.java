@@ -92,7 +92,12 @@ public class MapDif {
 		Map<Integer, Planet> planets = gameMap.getAllPlanets();
 		activeShips = new HashSet<>();
 
-
+		for(int i = 0; i <planetsPerId.length; i++) {
+			planetsPerId[i] = 0;
+		}
+		for(int i = 0; i <shipsPerId.length; i++) {
+			shipsPerId[i] = 0;
+		}
 		if(!init) {
 			System.arraycopy(planetsPerId, 0, planetsPIDif, 0, planetsPerId.length);
 			System.arraycopy(info, 0, infoDif, 0, info.length);
@@ -131,8 +136,12 @@ public class MapDif {
         }
 
 	    percentages[OWNEDPLANETS_PERC] = (double) info[ALL_OWNEDPLANETS] / (double)info[ALL_PLANETS];
-        percentages[MYSHIPS_PERC] = (double) shipsPerId[myId]/ (double)info[ALL_SHIPS];
 
+		percentages[MYSHIPS_PERC] = (double) shipsPerId[myId]/ (double)info[ALL_SHIPS];
+        Log.log("myShipsPercentage = " + shipsPerId[myId] + "/" + info[ALL_SHIPS] + " => " + percentages[MYSHIPS_PERC]);
+        
+        
+        
         if(info[ALL_OWNEDPLANETS] != 0) {
             percentages[MYPLANETS_PERC] = (double) planetsPerId[myId]/ (double)info[ALL_OWNEDPLANETS];
         } else {
